@@ -501,7 +501,10 @@ def assign_filenames(posts: list[dict], out_dir: Path, manifest: dict) -> None:
         date = post["date"]
         for pic in post["pics"]:
             url = pic["url"]
-            name = files.get(url)
+            # 按 “日期 + URL” 复用：同一张图在同一天出现只存一份，
+            # 但在别的日期被再次发布时，按当天重新命名（保证每篇的图都在自己日期下）
+            key = f"{date}|{url}"
+            name = files.get(key)
             if name:
                 pic["filename"] = name
                 continue
@@ -514,7 +517,7 @@ def assign_filenames(posts: list[dict], out_dir: Path, manifest: dict) -> None:
                 idx += 1
             used.setdefault(date, set()).add(idx)
             assigned.add(candidate)
-            files[url] = candidate
+            files[key] = candidate
             pic["filename"] = candidate
 
 
