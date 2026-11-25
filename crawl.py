@@ -29,7 +29,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode, urlparse
+from urllib.parse import quote, urlencode, urlparse
 
 import requests
 
@@ -124,6 +124,63 @@ def ext_from_url(url: str) -> str:
     return "jpg"
 
 
+def image_dimensions(path: Path) -> tuple[int, int] | None:
+    """纯 Python 读取 JPEG/PNG/GIF/WebP 的宽高，用于校验拿到的是不是原分辨率。"""
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(1 << 20)
+    except OSError:
+        return None
+
+    if head[:2] == b"\xff\xd8":  # JPEG
+        i, n = 2, len(head)
+        while i + 9 < n:
+            if head[i] != 0xFF:
+                i += 1
+                continue
+            marker = head[i + 1]
+            if marker in (0xD8, 0xD9) or 0xD0 <= marker <= 0xD7:
+                i += 2
+                continue
+            if marker == 0xDA:  # 进入扫描数据，后面不会再有 SOF
+                return None
+            length = int.from_bytes(head[i + 2 : i + 4], "big")
+            if marker in (
+                0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7,
+                0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF,
+            ):
+                h = int.from_bytes(head[i + 5 : i + 7], "big")
+                w = int.from_bytes(head[i + 7 : i + 9], "big")
+                return (w, h)
+            i += 2 + length
+        return None
+
+    if head[:8] == b"\x89PNG\r\n\x1a\n":  # PNG
+        w = int.from_bytes(head[16:20], "big")
+        h = int.from_bytes(head[20:24], "big")
+        return (w, h) if w and h else None
+
+    if head[:6] in (b"GIF87a", b"GIF89a"):  # GIF
+        w = int.from_bytes(head[6:8], "little")
+        h = int.from_bytes(head[8:10], "little")
+        return (w, h) if w and h else None
+
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":  # WebP
+        chunk = head[12:16]
+        if chunk == b"VP8X":
+            w = int.from_bytes(head[24:27], "little") + 1
+            h = int.from_bytes(head[27:30], "little") + 1
+            return (w, h)
+        if chunk == b"VP8 ":
+            w = int.from_bytes(head[26:28], "little") & 0x3FFF
+            h = int.from_bytes(head[28:30], "little") & 0x3FFF
+            return (w, h)
+        if chunk == b"VP8L":
+            bits = int.from_bytes(head[21:25], "little")
+            return ((bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1)
+    return None
+
+
 # --------------------------------------------------------------------------- #
 # 限速器：多线程共享的全局最小请求间隔
 # --------------------------------------------------------------------------- #
@@ -157,6 +214,10 @@ class BiliError(Exception):
         super().__init__(f"code={code} message={message} url={url}")
 
 
+class RiskControl(Exception):
+    """连续触发风控，本轮应中止（缓存已落盘，重跑可续传）。"""
+
+
 class BiliClient:
     def __init__(
         self,
@@ -165,12 +226,15 @@ class BiliClient:
         retries: int = 5,
         cookie_extra: str = "",
         timeout: int = 20,
+        max_risk: int = 5,
     ):
         self.cache_dir = cache_dir
         self.retries = max(1, retries)
         self.timeout = timeout
         self.limiter = RateLimiter(delay)
         self.cookie_extra = cookie_extra.strip()
+        self.max_risk = max_risk
+        self.risk_streak = 0
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -248,9 +312,14 @@ class BiliClient:
 
     def _sign(self, params: dict[str, Any]) -> dict[str, Any]:
         self._ensure_wbi()
-        p = {k: v for k, v in params.items() if v is not None}
-        p["wts"] = int(time.time())
-        query = urlencode(sorted(p.items()))
+        # 官方实现会剔除值里的 !'()* 这几个字符，否则签名对不上
+        p = {
+            k: "".join(c for c in str(v) if c not in "!'()*")
+            for k, v in params.items()
+            if v is not None
+        }
+        p["wts"] = str(int(time.time()))
+        query = urlencode(sorted(p.items()), quote_via=quote)
         p["w_rid"] = hashlib.md5((query + self._mixin_key).encode()).hexdigest()
         return p
 
@@ -275,7 +344,7 @@ class BiliClient:
 
             if r.status_code == 412:
                 last = "HTTP 412（风控）"
-                self._backoff(attempt)
+                self._on_blocked(attempt)
                 continue
             if r.status_code != 200:
                 last = f"HTTP {r.status_code}"
@@ -291,16 +360,23 @@ class BiliClient:
 
             code = data.get("code")
             if code == 0:
+                self.risk_streak = 0
                 return data
             if code in BLOCK_CODES:
                 last = f"code {code}（风控）"
-                self._backoff(attempt)
+                self._on_blocked(attempt)
                 continue
             raise BiliError(code, str(data.get("message", "")), url)
 
         raise BiliError("retry_exhausted", last, url)
 
-    def _backoff(self, attempt: int) -> None:
+    def _on_blocked(self, attempt: int) -> None:
+        """风控退避；连续多次仍被拦就中止本轮，避免把 IP 越封越久。"""
+        self.risk_streak += 1
+        if self.max_risk and self.risk_streak >= self.max_risk:
+            raise RiskControl(
+                f"连续 {self.risk_streak} 次触发风控，本轮中止（缓存已保存，稍后重跑可续传）"
+            )
         self.refresh_buvid()
         self._ensure_wbi(force=True)
         wait = min(120, 10 * (2 ** (attempt - 1))) + random.uniform(0, 5)
@@ -530,6 +606,7 @@ def download_pic(
     out_dir: Path,
     stats: dict,
     stats_lock: threading.Lock,
+    strict_size: bool = False,
 ) -> tuple[bool, str]:
     dest = out_dir / pic["filename"]
     if dest.exists() and dest.stat().st_size > 0:
@@ -550,7 +627,11 @@ def download_pic(
                 url,
                 stream=True,
                 timeout=60,
-                headers={"Referer": "https://www.bilibili.com/", "Accept": "*/*"},
+                headers={
+                    "Referer": "https://www.bilibili.com/",
+                    # 不声明 avif/webp，避免 CDN 协商成页面展示用的压缩格式
+                    "Accept": "image/jpeg,image/png,image/gif,image/*;q=0.9,*/*;q=0.5",
+                },
             ) as r:
                 if r.status_code != 200:
                     last = f"HTTP {r.status_code}"
@@ -569,22 +650,36 @@ def download_pic(
                             fh.write(chunk)
                             written += len(chunk)
 
-            # 原图校验：接口给的 size(KB) 与实际字节数一致
-            ok = written > 0
-            if ok and expected_bytes:
-                tolerance = max(4096, int(expected_bytes * 0.02))
-                if abs(written - expected_bytes) > tolerance:
-                    ok = False
-                    last = f"大小不符 {written}/{expected_bytes} B"
-            elif ok and written < 1024:
-                ok = False
+            ok = written >= 1024
+            if not ok:
                 last = "文件过小"
+
+            if ok:
+                # 原图判定：分辨率不能低于接口记录（这才是“查看大图”那一档）。
+                # 少数图片 CDN 存的反而是更大的版本，接口元数据偏旧，这种要放行。
+                got = image_dimensions(tmp)
+                api_w, api_h = pic.get("width"), pic.get("height")
+                if got and api_w and api_h and (got[0] < int(api_w) or got[1] < int(api_h)):
+                    ok = False
+                    last = f"分辨率被缩小 {got[0]}x{got[1]} < {api_w}x{api_h}"
+                elif expected_bytes:
+                    tolerance = max(4096, int(expected_bytes * 0.02))
+                    if abs(written - expected_bytes) > tolerance:
+                        # 分辨率一致但字节不同：B站 CDN 对部分历史图片做过重编码，
+                        # 原始字节已不存在，保留 CDN 版本并标记
+                        if strict_size:
+                            ok = False
+                            last = f"字节数不符 {written}/{expected_bytes} B"
+                        else:
+                            pic["recompressed"] = True
 
             if ok:
                 tmp.replace(dest)
                 with stats_lock:
                     stats["downloaded"] += 1
                     stats["bytes"] += written
+                    if pic.get("recompressed"):
+                        stats["recompressed"] += 1
                 return True, ""
 
             tmp.unlink(missing_ok=True)
@@ -617,6 +712,9 @@ def main() -> int:
     ap.add_argument("--delay", type=float, default=0.3, help="请求最小间隔（秒）")
     ap.add_argument("--limit", type=int, default=None, help="最多处理多少篇（调试用）")
     ap.add_argument("--cookie", default="", help='可选，浏览器 Cookie，如 "SESSDATA=xxx; bili_jct=yyy"')
+    ap.add_argument("--max-risk", type=int, default=5, help="连续风控多少次后中止本轮（0=不中止）")
+    ap.add_argument("--strict-size", action="store_true",
+                    help="严格模式：字节数与接口记录不一致就判失败（默认只校验分辨率）")
     ap.add_argument("--dry-run", action="store_true", help="只统计，不下载")
     ap.add_argument("--refresh", action="store_true", help="忽略缓存，重新抓列表和详情")
     args = ap.parse_args()
@@ -637,21 +735,32 @@ def main() -> int:
     log(f"保存目录 : {out_dir.resolve()}")
     log("")
 
-    client = BiliClient(data_dir / "cache", delay=args.delay, cookie_extra=args.cookie)
-
-    items = fetch_opus_list(client, args.uid, data_dir / "list.json", args.refresh)
-    log("")
-
-    posts, failures = collect_posts(
-        client,
-        args.uid,
-        items,
-        opus_cache,
-        since_ts,
-        until_ts,
-        args.limit,
-        args.refresh,
+    client = BiliClient(
+        data_dir / "cache",
+        delay=args.delay,
+        cookie_extra=args.cookie,
+        max_risk=args.max_risk,
     )
+
+    try:
+        items = fetch_opus_list(client, args.uid, data_dir / "list.json", args.refresh)
+        log("")
+
+        posts, failures = collect_posts(
+            client,
+            args.uid,
+            items,
+            opus_cache,
+            since_ts,
+            until_ts,
+            args.limit,
+            args.refresh,
+        )
+    except RiskControl as exc:
+        log("")
+        log(f"[中止] {exc}")
+        log("详情缓存已保存，稍后重跑会从断点继续（可加大 --delay）。")
+        return 2
     log("")
 
     manifest_path = data_dir / "manifest.json"
@@ -690,7 +799,7 @@ def main() -> int:
     # 下载
     log("")
     log(f"开始下载（{args.workers} 线程，间隔 {args.delay}s）...")
-    stats = {"downloaded": 0, "skipped": 0, "failed": 0, "bytes": 0}
+    stats = {"downloaded": 0, "skipped": 0, "failed": 0, "bytes": 0, "recompressed": 0}
     stats_lock = threading.Lock()
     failed_pics: list[dict] = []
     todo = [(post, pic) for post in posts for pic in post["pics"]]
@@ -699,7 +808,9 @@ def main() -> int:
     try:
         with ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
             futures = {
-                pool.submit(download_pic, client, pic, out_dir, stats, stats_lock): pic
+                pool.submit(
+                    download_pic, client, pic, out_dir, stats, stats_lock, args.strict_size
+                ): pic
                 for _, pic in todo
             }
             for fut in as_completed(futures):
@@ -727,12 +838,30 @@ def main() -> int:
         save_json(manifest_path, manifest)
         if failed_pics:
             save_json(data_dir / "failed_pics.json", failed_pics)
+        recompressed = [
+            {
+                "filename": pic["filename"],
+                "url": pic["url"],
+                "api_size_kb": pic.get("size_kb"),
+                "width": pic.get("width"),
+                "height": pic.get("height"),
+            }
+            for _, pic in todo
+            if pic.get("recompressed")
+        ]
+        if recompressed:
+            save_json(data_dir / "recompressed.json", recompressed)
 
     log("")
     log("完成。")
     log(f"  新增下载 : {stats['downloaded']}")
     log(f"  已存在   : {stats['skipped']}")
     log(f"  失败     : {stats['failed']}")
+    if stats["recompressed"]:
+        log(
+            f"  重编码   : {stats['recompressed']} 张"
+            f"（分辨率与原图一致，字节被 B站 CDN 重压过，清单见 {data_dir / 'recompressed.json'}）"
+        )
     if failed_pics:
         log(f"  失败清单 : {data_dir / 'failed_pics.json'}")
     return 0 if stats["failed"] == 0 else 1
