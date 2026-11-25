@@ -838,19 +838,25 @@ def main() -> int:
         save_json(manifest_path, manifest)
         if failed_pics:
             save_json(data_dir / "failed_pics.json", failed_pics)
-        recompressed = [
-            {
-                "filename": pic["filename"],
-                "url": pic["url"],
-                "api_size_kb": pic.get("size_kb"),
-                "width": pic.get("width"),
-                "height": pic.get("height"),
-            }
-            for _, pic in todo
-            if pic.get("recompressed")
-        ]
+        recompressed = {
+            d["filename"]: d
+            for d in load_json(data_dir / "recompressed.json", [])
+            if isinstance(d, dict) and d.get("filename")
+        }
+        for _, pic in todo:
+            if pic.get("recompressed"):
+                recompressed[pic["filename"]] = {
+                    "filename": pic["filename"],
+                    "url": pic["url"],
+                    "api_size_kb": pic.get("size_kb"),
+                    "width": pic.get("width"),
+                    "height": pic.get("height"),
+                }
         if recompressed:
-            save_json(data_dir / "recompressed.json", recompressed)
+            save_json(
+                data_dir / "recompressed.json",
+                sorted(recompressed.values(), key=lambda d: d["filename"]),
+            )
 
     log("")
     log("完成。")
