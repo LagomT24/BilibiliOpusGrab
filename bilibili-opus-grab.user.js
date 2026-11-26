@@ -114,7 +114,7 @@
     const LEGACY_PIC_NAME = '{original}.{ext}';
     const PIC_NAME_MIGRATED_KEY = 'picNameMigrated';
 
-    /* ---------- 原图 URL 规范化（移植自 crawl.py 的 normalize_image_url） ---------- */
+    /* ---------- 原图 URL 规范化（移植自 bilibili_opus_grab.py 的 normalize_image_url） ---------- */
 
     const IMG_EXT_WHITELIST = {
         jpg: 1, jpeg: 1, png: 1, gif: 1, webp: 1, bmp: 1, avif: 1, heic: 1, jxl: 1,
@@ -135,7 +135,7 @@
         return u;
     }
 
-    /** 从 URL 取扩展名（白名单校验，与 crawl.py 的 ext_from_url 一致） */
+    /** 从 URL 取扩展名（白名单校验，与 bilibili_opus_grab.py 的 ext_from_url 一致） */
     function extFromUrl(url) {
         // 一并去掉 @ 后缀：'a.jpg@100q.webp' 的扩展名应是 jpg 而不是 webp
         const path = String(url || '').split('?')[0].split('#')[0].split('@')[0];
@@ -205,7 +205,7 @@
     }
 
     /**
-     * 以「日期|原图URL」为键记住已分配的文件名（对应 crawl.py 的 manifest.files）。
+     * 以「日期|原图URL」为键记住已分配的文件名（对应 bilibili_opus_grab.py 的 manifest.files）。
      * 命中则复用，避免重跑时序号一路膨胀、同一张图存成多个名字。
      */
     function picNameFor(uid, key, makeName) {
@@ -749,7 +749,7 @@
         const jobs = [];
 
         pictures.forEach(function(picture, index) {
-            // 去 @ 压缩后缀 + 统一 https，拿到的才是原图（同 crawl.py 的 normalize_image_url）
+            // 去 @ 压缩后缀 + 统一 https，拿到的才是原图（同 bilibili_opus_grab.py 的 normalize_image_url）
             const pictureUrl = normalizeImageUrl(picture.url || picture.src);
             if (!pictureUrl || seen.has(pictureUrl)) return;   // 同一篇里可能重复出现同一张图
             seen.add(pictureUrl);
