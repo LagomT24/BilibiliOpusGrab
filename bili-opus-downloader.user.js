@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 图文原图下载（本地增强版）
 // @name:zh-CN   下载Bilibili动态页面图片和视频（本地增强版）
-// @version      1.4.1
+// @version      1.4.2
 // @description  Download pictures from bilibili timeline, space opus list and single opus page.
 // @description:zh-CN 在 OWENDSWANG 脚本基础上扩展：支持空间「图文」列表页与单篇 opus 页。
 // @author       OWENDSWANG / local
@@ -30,7 +30,6 @@
 // @grant        GM_setValue
 // @grant        GM_cookie
 // @grant        GM_registerMenuCommand
-// @require      https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js
 // @namespace    https://greasyfork.org/users/738244
 // @downloadURL https://update.greasyfork.org/scripts/421885/Bilibili%20Download%20Pictures%20and%20Videos.user.js
 // @updateURL https://update.greasyfork.org/scripts/421885/Bilibili%20Download%20Pictures%20and%20Videos.meta.js
@@ -301,6 +300,27 @@
                 .replace(/^\.+$/, '_')
                 .trim();
         }).filter(function(seg) { return seg !== ''; }).join('/');
+    }
+
+    /**
+     * 原生保存 Blob。不依赖 FileSaver：
+     * 1) cdnjs 在大陆经常拉不到，@require 失败会让整个脚本不执行；
+     * 2) <a download> 在 Chrome/Edge/Firefox 行为一致，文件名 100% 由脚本决定。
+     */
+    function saveBlobAs(blob, filename) {
+        if (!blob) return;
+        const href = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = href;
+        a.download = filename;
+        a.rel = 'noopener';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+            URL.revokeObjectURL(href);
+            a.remove();
+        }, 30000);
     }
 
     /** 用 GM_download 下载到子目录（saveAs 无法创建目录），带进度条 */
@@ -607,11 +627,13 @@
     }
 
     function downloadWrapper(url, name, responseType = 'blob') {
-        // console.log('downloadWrapper: ', url, name);
-        // 文件名里带子目录时走 GM_download（saveAs 无法创建目录）
-        if (responseType === 'blob' && name.indexOf('/') !== -1) {
+        // 只有显式开启子目录时才交给 GM_download。
+        // Tampermonkey 在部分下载模式下会忽略 name（TM issue #1695），
+        // 导致文件按 URL 原名保存（如 00b85b41-....jpg），所以默认走扁平保存。
+        if (responseType === 'blob' && name.indexOf('/') !== -1 && GM_getValue('dlUseSubdir', false)) {
             return downloadWithGm(url, name);
         }
+        const flatName = name.split('/').pop();
         downloadQueueTitle.style.display = 'block';
         const progress = downloadQueueCard.appendChild(progressBar.cloneNode(true));
         const progressName = name.length > 20 ? (name.substring(0,20) + '...') : name;
@@ -681,8 +703,13 @@
                 };
                 if (responseType === 'arraybuffer') {
                     resolve(oReq.response);
+                } else if (oReq.status !== 200 || !oReq.response) {
+                    // 403/404 时别把错误页当成图片存下来
+                    downloadError({ error: 'HTTP ' + oReq.status }, url, flatName, progress);
+                    resolve(false);
                 } else {
-                    saveAs(oReq.response, name);
+                    // 用扁平文件名交给 <a download>，文件名不会被管理器丢弃
+                    saveBlobAs(oReq.response, flatName);
                     resolve(true);
                 }
             };
@@ -1024,7 +1051,7 @@
         let out = await ffmpeg.readFile(`out_${id}.mp4`);
         await Promise.all([ffmpeg.deleteFile(`v_${id}.m4s`), ffmpeg.deleteFile(`a_${id}.m4s`), ffmpeg.deleteFile(`out_${id}.mp4`)]);
         // console.log(vidName);
-        saveAs(new Blob([out.buffer], { type: 'video/mp4' }), vidName);
+        saveBlobAs(new Blob([out.buffer], { type: 'video/mp4' }), vidName);
         progress.style.background = 'linear-gradient(to right, green 100%, transparent 100%)';
         progress.firstChild.textContent = progressName + ' [100%]';
         out = null;
@@ -1712,6 +1739,31 @@
         PicNameExplain1.style.color = 'gray';
         PicNameExplain1.style.lineHeight = '1.1rem';
         question1.appendChild(PicNameExplain1);
+        // 子目录开关：默认关闭，保证文件名不被脚本管理器的下载 API 丢掉
+        let labelUseSubdir = document.createElement('label');
+        labelUseSubdir.setAttribute('for', 'dlUseSubdir');
+        labelUseSubdir.textContent = '按 bilibili/UP主名称/ 子目录保存';
+        labelUseSubdir.style.display = 'inline-block';
+        labelUseSubdir.style.paddingRight = '0.2rem';
+        labelUseSubdir.style.marginTop = '0.5rem';
+        labelUseSubdir.style.marginBottom = '0.5rem';
+        question1.appendChild(labelUseSubdir);
+        let inputUseSubdir = document.createElement('input');
+        inputUseSubdir.type = 'checkbox';
+        inputUseSubdir.id = 'dlUseSubdir';
+        inputUseSubdir.name = 'dlUseSubdir';
+        inputUseSubdir.style.marginTop = '0.5rem';
+        inputUseSubdir.checked = GM_getValue('dlUseSubdir', false);
+        question1.appendChild(inputUseSubdir);
+        question1.appendChild(document.createElement('br'));
+        let useSubdirExplain = document.createElement('p');
+        useSubdirExplain.textContent = '关闭时文件直接保存到下载目录，文件名一定按上面模板生成。\n开启后改用 GM_download 建子目录，但部分脚本管理器/浏览器\n会忽略文件名（TM issue #1695），导致文件名变回 CDN 原名。';
+        useSubdirExplain.style.marginTop = '0.2rem';
+        useSubdirExplain.style.marginBottom = '0';
+        useSubdirExplain.style.whiteSpace = 'pre';
+        useSubdirExplain.style.color = 'gray';
+        useSubdirExplain.style.lineHeight = '1.1rem';
+        question1.appendChild(useSubdirExplain);
         /*let PicNameExplain2 = document.createElement('p');
         PicNameExplain2.innerHTML = '<b>注意</b>：启用“打包下载”时，需区分多文件名称，\n避免重复而导致打包后只有一个文件，文件命\n名时，必须包含{original}、{index}中至少一个\n标签。';
         PicNameExplain2.style.marginTop = '0.5rem';
@@ -2335,6 +2387,7 @@
                 refreshFlag = true;
             }
             GM_setValue('dlPicName', document.getElementById('dlPicName').value);
+            GM_setValue('dlUseSubdir', document.getElementById('dlUseSubdir').checked);
             GM_setValue('enableVideoDownload', document.getElementById('enableVideoDownload').checked);
             GM_setValue('dlVidName', document.getElementById('dlVidName').value);
             // GM_setValue('retweetMode', document.getElementById('retweetMode').checked);
