@@ -769,7 +769,11 @@
     }*/
 
     async function handleImageDynamic(item) {
-        const pictures = item.modules.module_dynamic.major.opus.pics || item.modules.module_dynamic.major.draw.items;
+        // DRAW 类型作品的 major.opus 为 null，直接取 .pics 会抛异常导致“点了没反应”
+        const major = item.modules.module_dynamic.major || {};
+        const opusPics = major.opus && major.opus.pics;
+        const drawItems = major.draw && major.draw.items;
+        const pictures = opusPics || drawItems || [];
         // console.log(pictures);
         if (Array.isArray(pictures)) {
             const userName = (item.modules.module_author.name || 'unknown').replace(/[<|>|*|"|\/|\\|\||:|?|\n]/g, '_');
@@ -1466,7 +1470,16 @@
         }
     }
 
-    if (location.pathname.startsWith('/v/topic/detail')) document.body.addEventListener('mouseover', bodyMouseOver);
+    // 瀑布流首屏卡片常常在脚本执行后才渲染出来，仅注册 /v/topic/detail 会漏掉整页
+    if (location.pathname.startsWith('/v/topic/detail')
+        || location.host === 'space.bilibili.com'
+        || location.host === 't.bilibili.com'
+        || location.host === 'www.bilibili.com') {
+        document.body.addEventListener('mouseover', bodyMouseOver);
+    }
+    // 首屏兜底：等接口返回后再补一次（notLoaded 为 false 时是空操作）
+    setTimeout(bodyMouseOver, 1200);
+    setTimeout(bodyMouseOver, 3000);
 
     function showModal(event) {
         // console.log(addDlBtnMode);
@@ -2222,7 +2235,8 @@
                         // console.log(mutation.target, node);
                     }
                 }*/
-                if (mutation.target.tagName === 'DIV' && ['bili-dyn-list__items', 'content'].includes(mutation.target.className)) {
+                // 用 classList 判断：元素常有多个 class，className 全等比较会漏掉整页卡片
+                if (mutation.target.tagName === 'DIV' && (mutation.target.classList.contains('bili-dyn-list__items') || mutation.target.classList.contains('content'))) {
                     // console.log('bili-dyn-list__items: ', mutation.addedNodes);
                     for (const node of mutation.addedNodes) {
                         // console.log(node);
