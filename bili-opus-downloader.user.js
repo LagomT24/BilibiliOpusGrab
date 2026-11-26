@@ -1,8 +1,7 @@
 // ==UserScript==
 // @name         Bilibili 图文原图下载（本地增强版）
 // @name:zh-CN   下载Bilibili动态页面图片和视频（本地增强版）
-// @namespace    local.bili-opus-downloader
-// @version      1.4.0
+// @version      1.4.1
 // @description  Download pictures from bilibili timeline, space opus list and single opus page.
 // @description:zh-CN 在 OWENDSWANG 脚本基础上扩展：支持空间「图文」列表页与单篇 opus 页。
 // @author       OWENDSWANG / local
@@ -32,7 +31,7 @@
 // @grant        GM_cookie
 // @grant        GM_registerMenuCommand
 // @require      https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js
-// @namespace https://greasyfork.org/users/738244
+// @namespace    https://greasyfork.org/users/738244
 // @downloadURL https://update.greasyfork.org/scripts/421885/Bilibili%20Download%20Pictures%20and%20Videos.user.js
 // @updateURL https://update.greasyfork.org/scripts/421885/Bilibili%20Download%20Pictures%20and%20Videos.meta.js
 // ==/UserScript==
@@ -124,6 +123,126 @@
     // 默认图片命名：{username} {YYYY}.{MM}.{DD} ({seq}).{ext}
     // {seq} 为当日连续序号（跨作品累加），比 {index} 更能避免重名
     const DEFAULT_PIC_NAME = '{username} {YYYY}.{MM}.{DD} ({seq}).{ext}';
+    // 参考脚本的出厂默认值。老用户存储里大概率还是它，需要一次性迁移
+    const LEGACY_PIC_NAME = '{original}.{ext}';
+    const PIC_NAME_MIGRATED_KEY = 'picNameMigrated';
+
+    /* ---------- 原图 URL 规范化（移植自 crawl.py 的 normalize_image_url） ---------- */
+
+    const IMG_EXT_WHITELIST = {
+        jpg: 1, jpeg: 1, png: 1, gif: 1, webp: 1, bmp: 1, avif: 1, heic: 1, jxl: 1,
+    };
+
+    /** 统一 https、去掉 query、去掉 CDN 的 @xxx 压缩/裁剪后缀 */
+    function normalizeImageUrl(url) {
+        if (!url) return '';
+        let u = String(url).trim();
+        if (u.startsWith('//')) {
+            u = 'https:' + u;
+        } else if (u.startsWith('http://')) {
+            u = 'https://' + u.slice('http://'.length);
+        }
+        u = u.split('?')[0].split('#')[0];
+        const at = u.indexOf('@');
+        if (at !== -1) u = u.slice(0, at);
+        return u;
+    }
+
+    /** 从 URL 取扩展名（白名单校验，与 crawl.py 的 ext_from_url 一致） */
+    function extFromUrl(url) {
+        // 一并去掉 @ 后缀：'a.jpg@100q.webp' 的扩展名应是 jpg 而不是 webp
+        const path = String(url || '').split('?')[0].split('#')[0].split('@')[0];
+        const base = path.slice(path.lastIndexOf('/') + 1);
+        const dot = base.lastIndexOf('.');
+        const ext = dot === -1 ? '' : base.slice(dot + 1).toLowerCase();
+        if (IMG_EXT_WHITELIST[ext]) return ext === 'jpeg' ? 'jpg' : ext;
+        return 'jpg';
+    }
+
+    /** 去掉最后一个扩展名后的文件名 */
+    function baseNameOf(url) {
+        const path = String(url || '').split('?')[0].split('#')[0];
+        const base = path.slice(path.lastIndexOf('/') + 1);
+        const dot = base.lastIndexOf('.');
+        return dot === -1 ? base : base.slice(0, dot);
+    }
+
+    /* ---------- 图片下载节流：并发 2、每次间隔 300~550ms ---------- */
+
+    const IMG_CONCURRENCY = 2;
+    const IMG_MIN_GAP_MS = 300;
+
+    function sleepMs(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    function createLimiter(max) {
+        let active = 0;
+        const queue = [];
+        const next = () => {
+            if (active >= max || queue.length === 0) return;
+            const job = queue.shift();
+            active += 1;
+            Promise.resolve()
+                .then(job.fn)
+                .then(job.resolve, job.reject)
+                .then(() => {
+                    active -= 1;
+                    next();
+                });
+        };
+        return function (fn) {
+            return new Promise((resolve, reject) => {
+                queue.push({ fn, resolve, reject });
+                next();
+            });
+        };
+    }
+
+    const imageLimiter = createLimiter(IMG_CONCURRENCY);
+
+    /** 把下载任务排进限流器，并保证两次请求之间有随机间隔 */
+    function queueImageTask(fn) {
+        return imageLimiter(async () => {
+            const r = await fn();
+            await sleepMs(IMG_MIN_GAP_MS + Math.random() * 250);
+            return r;
+        });
+    }
+
+    /* ---------- 命名映射：同一张图重复处理时复用已分配的文件名 ---------- */
+
+    function loadPicNameMap(uid) {
+        const m = GM_getValue('picmap-' + uid, null);
+        return (m && typeof m === 'object') ? m : {};
+    }
+
+    /**
+     * 以「日期|原图URL」为键记住已分配的文件名（对应 crawl.py 的 manifest.files）。
+     * 命中则复用，避免重跑时序号一路膨胀、同一张图存成多个名字。
+     */
+    function picNameFor(uid, key, makeName) {
+        const map = loadPicNameMap(uid);
+        if (map[key]) return map[key];
+        const name = makeName();
+        map[key] = name;
+        GM_setValue('picmap-' + uid, map);
+        return name;
+    }
+
+    /**
+     * 一次性迁移：老用户存储里的 dlPicName 还是参考脚本的 '{original}.{ext}'，
+     * 会让新默认模板永远不生效（下载下来仍是 uuid.jpg）。
+     * 只在脚本版本升级后执行一次；已是自定义模板的不动。
+     */
+    function ensurePicNameSetting() {
+        if (GM_getValue(PIC_NAME_MIGRATED_KEY, false)) return;
+        const stored = GM_getValue('dlPicName', null);
+        if (stored === null || String(stored).trim() === '' || String(stored).trim() === LEGACY_PIC_NAME) {
+            GM_setValue('dlPicName', DEFAULT_PIC_NAME);
+        }
+        GM_setValue(PIC_NAME_MIGRATED_KEY, true);
+    }
 
     /** 当前页面对应的单篇 opus / 动态 id（仅在详情页返回） */
     function pageOpusId() {
@@ -174,8 +293,24 @@
         return Math.floor(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0).getTime() / 1000);
     }
 
+    /** 清洗下载路径：保留 / 作为子目录分隔，逐段去掉 Windows 非法字符 */
+    function sanitizeDownloadName(name) {
+        return String(name).split('/').map(function(seg) {
+            return seg
+                .replace(/[<>:"|?*\x00-\x1f]/g, '_')
+                .replace(/^\.+$/, '_')
+                .trim();
+        }).filter(function(seg) { return seg !== ''; }).join('/');
+    }
+
     /** 用 GM_download 下载到子目录（saveAs 无法创建目录），带进度条 */
-    function downloadWithGm(url, name) {
+    function downloadWithGm(url, name, allowFlatten) {
+        name = sanitizeDownloadName(name);
+        if (typeof GM_download !== 'function') {
+            // 管理器未授权 GM_download：退化为单层文件名，至少保证能落盘
+            return downloadWrapper(url, name.split('/').pop());
+        }
+        console.log('[bili-dl] GM_download name =', name);
         const progress = downloadQueueCard.appendChild(progressBar.cloneNode(true));
         const progressName = name.length > 20 ? (name.substring(0, 20) + '...') : name;
         progress.firstChild.textContent = progressName + ' [0%]';
@@ -208,6 +343,13 @@
                     resolve(true);
                 },
                 onerror: function(e) {
+                    // 子目录写入不被支持时，退化为单层文件名重试一次，避免整张图失败
+                    if (allowFlatten !== false && name.indexOf('/') !== -1) {
+                        console.warn('[bili-dl] 子目录写入失败，改用单层文件名重试:', e && e.error, name);
+                        progress.remove();
+                        resolve(downloadWithGm(url, name.split('/').pop(), false));
+                        return;
+                    }
                     downloadError(e, url, name, progress);
                     resolve(false);
                 },
@@ -671,18 +813,20 @@
         return setName.replace(/[<|>|*|"|\/|\\|\||:|?|\n]/g, '_');
     }*/
 
-    function getPicName(nameSetting, originalName, index, item) {
+    function getPicName(nameSetting, originalName, index, item, sourceUrl) {
         const author = item.modules.module_author;
         const dynamic = item.modules.module_dynamic;
         // console.log(card);
         let setName = nameSetting;
-        setName = setName.replace('{original}', originalName.split('.')[0]);
-        setName = setName.replace('{ext}', originalName.split('.')[1]);
+        // {original} / {ext} 不再用 split('.') 猜，避免 'a.b.jpg@100q.webp' 这类 URL 取错
+        setName = setName.replace('{original}', baseNameOf(originalName));
+        setName = setName.replace('{ext}', extFromUrl(sourceUrl || originalName));
         const userName = author.name;
         const userId = author.mid;
         const dynamicId = item.id_str;
-        const content = (dynamic.major.opus && dynamic.major.opus.summary && dynamic.major.opus.summary.text)
-            || (dynamic.major.draw && dynamic.major.draw.summary && dynamic.major.draw.summary.text)
+        const majorBlock = dynamic.major || {};
+        const content = (majorBlock.opus && majorBlock.opus.summary && majorBlock.opus.summary.text)
+            || (majorBlock.draw && majorBlock.draw.summary && majorBlock.draw.summary.text)
             || '';
         // console.log("content: ", content);
         setName = setName.replace('{username}', userName);
@@ -774,18 +918,35 @@
         const opusPics = major.opus && major.opus.pics;
         const drawItems = major.draw && major.draw.items;
         const pictures = opusPics || drawItems || [];
-        // console.log(pictures);
-        if (Array.isArray(pictures)) {
-            const userName = (item.modules.module_author.name || 'unknown').replace(/[<|>|*|"|\/|\\|\||:|?|\n]/g, '_');
-            await Promise.all(pictures.map(function(picture, index) {
-                // console.log(picture);
-                const pictureUrl = picture.url || picture.src;
-                const originalName = pictureUrl.split('/')[pictureUrl.split('/').length - 1];
-                const pictureName = getPicName(GM_getValue('dlPicName', DEFAULT_PIC_NAME), originalName, index + 1, item);
-                // 输出到 bilibili/{username}/ 下，与文件名模板解耦
+        if (!Array.isArray(pictures) || pictures.length === 0) return false;
+
+        const author = item.modules.module_author;
+        const userName = (author.name || 'unknown').replace(/[<|>|*|"|\/|\\|\||:|?|\n]/g, '_');
+        const uid = author.mid;
+        const dateKey = dateKeyOf(author.pub_ts);
+        const template = GM_getValue('dlPicName', DEFAULT_PIC_NAME);
+        const seen = new Set();
+        const jobs = [];
+
+        pictures.forEach(function(picture, index) {
+            // 去 @ 压缩后缀 + 统一 https，拿到的才是原图（同 crawl.py 的 normalize_image_url）
+            const pictureUrl = normalizeImageUrl(picture.url || picture.src);
+            if (!pictureUrl || seen.has(pictureUrl)) return;   // 同一篇里可能重复出现同一张图
+            seen.add(pictureUrl);
+
+            const originalName = pictureUrl.slice(pictureUrl.lastIndexOf('/') + 1);
+            // 以「日期|URL」为键复用已分配的名字，重跑不会让序号继续膨胀
+            const pictureName = picNameFor(uid, dateKey + '|' + pictureUrl, function() {
+                return getPicName(template, originalName, index + 1, item, pictureUrl);
+            });
+            // 输出到 bilibili/{username}/ 下，与文件名模板解耦
+            jobs.push(queueImageTask(function() {
                 return downloadWrapper(pictureUrl, OUTPUT_ROOT + '/' + userName + '/' + pictureName);
             }));
-        }
+        });
+
+        const results = await Promise.all(jobs);
+        return results.some(Boolean);
     }
 
     // For 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail?dynamic_id=' + dynId
@@ -2217,6 +2378,9 @@
         window.addEventListener('resize', resizeWindow);
     }
 
+    // 先把老存储里的 '{original}.{ext}' 迁移成新模板，再决定是否弹设置面板
+    ensurePicNameSetting();
+
     if(GM_getValue('isSet', null) !== settingVersion) {
         showModal();
     }
@@ -2447,6 +2611,7 @@
         try {
             // 1. 枚举作品列表
             const ids = [];
+            const seenIds = new Set();
             let page = 1;
             let offset = '';
             for (;;) {
@@ -2461,7 +2626,11 @@
                 const data = res.data || {};
                 const items = data.items || [];
                 for (const it of items) {
-                    if (it.opus_id && !ids.includes(String(it.opus_id))) ids.push(String(it.opus_id));
+                    const id = String(it.opus_id || '');
+                    if (id && !seenIds.has(id)) {
+                        seenIds.add(id);
+                        ids.push(id);
+                    }
                 }
                 if (!data.has_more || !items.length || !data.offset) break;
                 offset = data.offset;
