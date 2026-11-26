@@ -10,9 +10,9 @@
         2026.10.26 (1).jpg ... (6).jpg
 
 用法:
-    python crawl.py --uid 2394319 --since 2021-08-01 --out images
-    python crawl.py --dry-run            # 只统计，不下载
-    python crawl.py --cookie "SESSDATA=xxx; bili_jct=yyy"   # 可选，风控更宽松
+    python bilibili_opus_grab.py --uid 2394319 --since 2021-08-01 --out images
+    python bilibili_opus_grab.py --dry-run            # 只统计，不下载
+    python bilibili_opus_grab.py --cookie "SESSDATA=xxx; bili_jct=yyy"   # 可选，风控更宽松
 """
 
 from __future__ import annotations

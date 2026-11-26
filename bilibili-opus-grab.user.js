@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         BiliOpusGrab
-// @name:zh-CN   哔哩图文抓取
-// @namespace    bili-opus-grab
+// @name         BilibiliOpusGrab
+// @name:zh-CN   bilibili图文抓取
+// @namespace    bilibili-opus-grab
 // @version      0.9.0
 // @description  Batch-download original images from bilibili dynamics, space opus list and single opus pages.
-// @description:zh-CN 批量下载 B 站动态、空间图文列表与单篇 opus 的原图，支持日期区间、自定义命名与视频下载。
+// @description:zh-CN 批量下载 B 站动态、空间图文列表与单篇 opus 的原图，支持日期区间与自定义命名。
 // @author       WangLu
 // @license      MIT
 // @icon         data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23FB7299'/%3E%3Ccircle cx='22' cy='21' r='5' fill='%23fff'/%3E%3Cpath d='M13 45l13-15 8 9 6-6 11 12z' fill='%23fff'/%3E%3C/svg%3E
@@ -12,22 +12,14 @@
 // @match        https://space.bilibili.com/*/dynamic*
 // @match        https://space.bilibili.com/*/upload/opus*
 // @match        https://www.bilibili.com/opus/*
-// @match        https://www.bilibili.com/video/*
 // @match        https://www.bilibili.com/v/topic/detail?*
-// @match        https://www.bilibili.com/bangumi/play/*
 // @connect      bilibili.com
-// @connect      bilivideo.com
-// @connect      bilivideo.cn
 // @connect      hdslb.com
 // @connect      biliimg.com
-// @connect      akamaized.net
-// @connect      smtcdns.com
-// @connect      jsdelivr.net
 // @grant        GM_download
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
-// @grant        GM_cookie
 // @grant        GM_registerMenuCommand
 // ==/UserScript==
 
@@ -35,7 +27,7 @@
     'use strict';
 
     // Your code here...
-    const settingVersion = 5;
+    const settingVersion = 6;
     const downloadIcon = 'url(\'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEgAACxIB0t1+/AAAABx0RVh0U29mdHdhcmUAQWRvYmUgRmlyZXdvcmtzIENTNui8sowAAAHpSURBVDiNndS7a1RREMfxz9XVrI8UIkjwLxCipYVp9A+wEQsV8dFksLCwUATxAYqNIAhWO4UPsAqCCGqTQkRQULEMgojYCSK+X4nhWty7uCZ3k5gfnObMOd8zM2dmirIs9SozV+IxNmCJZk3jObZGxFSvodVweD024TMm+wDb2Iy1eDsfcCkKHMSdPsB9uFKf/UdNwK4mI+J3kyEzp5r26Z8jTa8v5N5cwEWpCdgYZh/NOtuCzGyrQiwx+B/Awcz8ovrE6Yj42crMcYyoSqRdr/nULd6X+IFfWJaZYy1cwhA24j5u1t4+mAN4D0cwhb21Q89wtSjLUmauxm1sw56IGFtIvJm5H9dxFzsj4lfR23qZeQ0HcDEijs4Du4zD6ETEoe5+0el0zuNnURTnRkdHZeYpnMUt7JrZq5k5oErLdhyPiAuZuQyn8XEJTuBMWZbLISLOqVprB55k5roe2BCe1rDdEXGhNq3CSRxrqX73U68XEXEjM99gHBOZuUVVs4+wAiMR8bjnSolv+NC3UyLiIYZVU+cFJvARwzNg/6gLLDVUfUS8UpXTw3ptjIjXDZzpmlF2p02BdmbOmn8R8V1VTiAzmybUQM0oik6n81WVl/f9wvC3M4o+9kI1bD+08A5r6rVYlapcf/0DW06ifC1dVCUAAAAASUVORK5CYII=\')';
 
     let notLoaded = true;
@@ -393,107 +385,6 @@
     }
 
 
-/*
-  Third-party libraries used in this script:
-
-  1) @ffmpeg/ffmpeg (MIT License)
-     https://github.com/ffmpegwasm/ffmpeg.wasm
-     License: MIT
-
-  2) @ffmpeg/core (FFmpeg WebAssembly core, compiled from FFmpeg C code)
-     https://github.com/ffmpegwasm/ffmpeg.wasm
-     License: GPL-2.0-or-later
-
-  Notes:
-    - The core WebAssembly binaries and related worker code derive from FFmpeg
-      and follow the GPL-2.0-or-later licence. See https://www.ffmpeg.org/legal.html
-      for original FFmpeg licensing details.
-    - This script does not modify upstream code; redistribution obligations are
-      met by preserving these notices.
-    - The FFmpeg WebAssembly binaries are downloaded from upstream sources
-      and may be cached locally for performance purposes.
-*/
-    const { FFmpeg } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/classes.js');
-
-    const FFMPEG_CORE = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm/ffmpeg-core.js';
-    const FFMPEG_WASM = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm/ffmpeg-core.wasm';
-
-    // const FFMPEG_CLASS_WORKER = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/worker.js';
-    // Bundled worker code derived from @ffmpeg/ffmpeg dist/esm/worker.js (MIT).
-    // npx esbuild node_modules/@ffmpeg/ffmpeg/dist/esm/worker.js --bundle --format=esm --platform=browser --minify --outfile=ffmpeg_worker_bundle.js
-    const FFMPEG_WORKER_BUNDLE = 'var u="0.12.9",R=`https://unpkg.com/@ffmpeg/core@${u}/dist/umd/ffmpeg-core.js`,s;(function(t){t.LOAD="LOAD",t.EXEC="EXEC",t.FFPROBE="FFPROBE",t.WRITE_FILE="WRITE_FILE",t.READ_FILE="READ_FILE",t.DELETE_FILE="DELETE_FILE",t.RENAME="RENAME",t.CREATE_DIR="CREATE_DIR",t.LIST_DIR="LIST_DIR",t.DELETE_DIR="DELETE_DIR",t.ERROR="ERROR",t.DOWNLOAD="DOWNLOAD",t.PROGRESS="PROGRESS",t.LOG="LOG",t.MOUNT="MOUNT",t.UNMOUNT="UNMOUNT"})(s||(s={}));var a=new Error("unknown message type"),f=new Error("ffmpeg is not loaded, call `await ffmpeg.load()` first"),F=new Error("called FFmpeg.terminate()"),O=new Error("failed to import ffmpeg-core.js");var r,l=async({coreURL:t,wasmURL:o,workerURL:e})=>{let n=!r;try{t||(t=R),importScripts(t)}catch{if((!t||t===R)&&(t=R.replace("/umd/","/esm/")),self.createFFmpegCore=(await import(t)).default,!self.createFFmpegCore)throw O}let E=t,c=o||t.replace(/.js$/g,".wasm"),m=e||t.replace(/.js$/g,".worker.js");return r=await self.createFFmpegCore({mainScriptUrlOrBlob:`${E}#${btoa(JSON.stringify({wasmURL:c,workerURL:m}))}`}),r.setLogger(i=>self.postMessage({type:s.LOG,data:i})),r.setProgress(i=>self.postMessage({type:s.PROGRESS,data:i})),n},D=({args:t,timeout:o=-1})=>{r.setTimeout(o),r.exec(...t);let e=r.ret;return r.reset(),e},I=({args:t,timeout:o=-1})=>{r.setTimeout(o),r.ffprobe(...t);let e=r.ret;return r.reset(),e},S=({path:t,data:o})=>(r.FS.writeFile(t,o),!0),p=({path:t,encoding:o})=>r.FS.readFile(t,{encoding:o}),L=({path:t})=>(r.FS.unlink(t),!0),A=({oldPath:t,newPath:o})=>(r.FS.rename(t,o),!0),N=({path:t})=>(r.FS.mkdir(t),!0),T=({path:t})=>{let o=r.FS.readdir(t),e=[];for(let n of o){let E=r.FS.stat(`${t}/${n}`),c=r.FS.isDir(E.mode);e.push({name:n,isDir:c})}return e},w=({path:t})=>(r.FS.rmdir(t),!0),k=({fsType:t,options:o,mountPoint:e})=>{let n=t,E=r.FS.filesystems[n];return E?(r.FS.mount(E,o,e),!0):!1},_=({mountPoint:t})=>(r.FS.unmount(t),!0);self.onmessage=async({data:{id:t,type:o,data:e}})=>{let n=[],E;try{if(o!==s.LOAD&&!r)throw f;switch(o){case s.LOAD:E=await l(e);break;case s.EXEC:E=D(e);break;case s.FFPROBE:E=I(e);break;case s.WRITE_FILE:E=S(e);break;case s.READ_FILE:E=p(e);break;case s.DELETE_FILE:E=L(e);break;case s.RENAME:E=A(e);break;case s.CREATE_DIR:E=N(e);break;case s.LIST_DIR:E=T(e);break;case s.DELETE_DIR:E=w(e);break;case s.MOUNT:E=k(e);break;case s.UNMOUNT:E=_(e);break;default:throw a}}catch(c){self.postMessage({id:t,type:s.ERROR,data:c.toString()});return}E instanceof Uint8Array&&n.push(E.buffer),self.postMessage({id:t,type:o,data:E},n)};';
-
-    let ffmpegInstance = null;
-    let ffmpegInitializing = false;
-
-    async function getCached(url, key, progress, progressName, progressMin = 0, progressMax = 100) {
-        const keyPath = '/' + key;
-        const CACHE_NAME = 'bilibili-download';
-        const cache = await caches.open(CACHE_NAME);
-        const cached = await cache.match(keyPath)
-        if (cached instanceof Response) {
-            const ab = await cached.arrayBuffer();
-            // console.log(ab);
-            if (ab.byteLength > 0) {
-                return ab;
-            }
-        }
-        const ab = await gmXMLHttpRequest(url, 'arraybuffer', progress, progressName, progressMin, progressMax);
-        await cache.put(keyPath, new Response(ab));
-        return ab;
-    }
-
-    async function toBlobURL(url, key, mime, progress, progressName, progressMin = 0, progressMax = 100) {
-        // console.log(url, key, mime, progress, progressName, progressMin, progressMax);
-        const ab = await getCached(url, key, progress, progressName, progressMin, progressMax);
-        // console.log(ab);
-        if (!(ab instanceof ArrayBuffer) || ab.byteLength === 0) { throw new Error('Error to download: ' + url); }
-        return URL.createObjectURL(new Blob([ab], { type: mime }));
-    }
-
-    async function getFFmpeg() {
-        if (ffmpegInstance) return ffmpegInstance;
-        if (ffmpegInitializing) throw new Error('FFmpeg initializing...');
-        // console.log('initializing ffmpeg...');
-        downloadQueueTitle.style.display = 'block';
-        const progress = downloadQueueCard.appendChild(progressBar.cloneNode(true));
-        progress.lastChild.remove();
-        const progressName = 'FFmpeg initializing ...';
-        progress.firstChild.textContent = progressName + ' [0%]';
-        ffmpegInitializing = true;
-        // const FFmpeg = FFmpegWASM.FFmpeg;
-        const ffmpeg = new FFmpeg();
-        // ffmpeg.on('log', ({ message }) => console.log(message));
-        const coreURL = await toBlobURL(FFMPEG_CORE, 'FFMPEG_CORE', 'text/javascript', progress, progressName, 0, 30);
-        // console.log('coreURL: ', coreURL);
-        progress.style.background = 'linear-gradient(to right, green 30%, transparent 30%)';
-        progress.firstChild.textContent = progressName + ' [30%]';
-        const wasmURL = await toBlobURL(FFMPEG_WASM, 'FFMPEG_WASM', 'application/wasm', progress, progressName, 30, 60);
-        // console.log('wasmURL: ', wasmURL);
-        progress.style.background = 'linear-gradient(to right, green 60%, transparent 60%)';
-        progress.firstChild.textContent = progressName + ' [60%]';
-        // const classWorkerURL = await bundleESMToBlob(FFMPEG_CLASS_WORKER);
-        const classWorkerURL = URL.createObjectURL(new Blob([FFMPEG_WORKER_BUNDLE], { type: 'text/javascript' }));
-        // console.log('classWorkerURL: ', classWorkerURL);
-        progress.style.background = 'linear-gradient(to right, green 90%, transparent 90%)';
-        progress.firstChild.textContent = progressName + ' [90%]';
-        await ffmpeg.load({
-            coreURL,
-            wasmURL,
-            classWorkerURL,
-        });
-        ffmpegInstance = ffmpeg;
-        ffmpegInitializing = false;
-        // console.log('ffmpeg initialized!');
-        progress.style.background = 'linear-gradient(to right, green 100%, transparent 100%)';
-        progress.firstChild.textContent = progressName + ' [100%]';
-        setTimeout(() => {
-            progress.remove();
-            if(downloadQueueCard.childElementCount == 1) downloadQueueTitle.style.display = 'none';
-        }, 1000);
-        return ffmpegInstance;
-    }
-
     function oXMLHttpRequest(url, type) {
         // console.log('oXMLHttpRequest started: ' + url);
         return new Promise(function(resolve, reject) {
@@ -721,65 +612,6 @@
         });
     }
 
-    /*function getCookie(name) {
-        return new Promise(function(resolve, reject) {
-            GM_cookie.list({ name: name }, function(cookies, error) {
-                if (!error) {
-                    // console.log(cookies);
-                    resolve(cookies[0].value);
-                } else {
-                    console.error(error);
-                }
-            });
-        });
-    }
-
-    function getAllCookies() {
-        return new Promise(function(resolve, reject) {
-            GM_cookie.list({}, function(cookies, error) {
-                if (!error) {
-                    // console.log(cookies);
-                    const cookiesStr = cookies.map((ele) => { return ele.name + '=' + ele.value }).join('; ');
-                    // console.log(cookiesStr);
-                    resolve(cookiesStr);
-                } else {
-                    console.error(error);
-                    resolve(null);
-                }
-            });
-        });
-    }
-
-    function download2Blob(url) {
-        // console.log('download2Blob: ', url);
-        return new Promise(function(resolve, reject) {
-            GM_xmlhttpRequest({
-                method: 'GET',
-                url,
-                responseType: 'blob',
-                headers: {
-                    Referer: location.protocol + '//' + location.hostname,
-                    Origin: location.protocol + '//' + location.hostname,
-                },
-                onload: function({ response }) {
-                    // console.log(response);
-                    // saveAs(response, name);
-                    resolve(response);
-                },
-                onabort: function(e) { console.log(e); alert('请求被中断！'); resolve(null); },
-                onerror: function(e) { console.log(e); alert('请求失败！'); resolve(null); },
-                ontimeout: function(e) { console.log(e); alert('下载超时！'); resolve(null); },
-            });
-        });
-    }*/
-
-    function parseDurationTextToSeconds(durationText) {
-        const [minutes, seconds] = durationText.split(':').map(Number);
-        return minutes * 60 + seconds;
-    }
-
-    // For 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail?dynamic_id=' + dynId
-    // But it has deprecated
     /*function getPicName(nameSetting, originalName, index, data) {
         const card = JSON.parse(data.card.card);
         // console.log(card);
@@ -877,41 +709,6 @@
         return setName.replace(/[<|>|*|"|\/|\\|\||:|?|\n]/g, '_');
     }
 
-    function getVidName(nameSetting, originalName, data) {
-        let setName = nameSetting;
-        setName = setName.replace('{original}', originalName.split('.')[0]);
-        setName = setName.replace('{ext}', originalName.split('.')[1]);
-        const bvid = data.bvid;
-        const aid = data.aid;
-        const cid = data.cid;
-        const title = data.title;
-        const content = data.desc;
-        const userName = data.owner.name;
-        const userId = data.owner.mid;
-        setName = setName.replace('{bvid}', bvid);
-        setName = setName.replace('{aid}', aid);
-        setName = setName.replace('{cid}', cid);
-        setName = setName.replace('{title}', title);
-        setName = setName.replace('{content}', content.substring(0, 25));
-        setName = setName.replace('{username}', userName);
-        setName = setName.replace('{userid}', userId);
-        let YYYY, MM, DD, HH, mm, ss;
-        const postAt = new Date(data.ctime * 1000);
-        YYYY = postAt.getFullYear().toString();
-        MM = (postAt.getMonth() + 1).toString().padStart(2, '0');
-        DD = postAt.getDate().toString().padStart(2, '0');
-        HH = postAt.getHours().toString().padStart(2, '0');
-        mm = postAt.getMinutes().toString().padStart(2, '0');
-        ss = postAt.getSeconds().toString().padStart(2, '0');
-        setName = setName.replace('{YYYY}', YYYY);
-        setName = setName.replace('{MM}', MM);
-        setName = setName.replace('{DD}', DD);
-        setName = setName.replace('{HH}', HH);
-        setName = setName.replace('{mm}', mm);
-        setName = setName.replace('{ss}', ss);
-        return setName.replace(/[<|>|*|"|\/|\\|\||:|?|\n]/g, '_');
-    }
-
     // For 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail?dynamic_id=' + dynId
     // But it has deprecated
     /*async function handleImageDynamic(data) {
@@ -995,151 +792,8 @@
         }
     }*/
 
-    function getVideoInfo(bvid) {
-        // console.log('getVideoInfo');
-        return oXMLHttpRequest('https://api.bilibili.com/x/web-interface/view?bvid=' + bvid, 'json');
-    }
-
-    function getVideoDetail(aid, cid/*, cookies*/, fnval) {
-        /*return new Promise(function(resolve, reject) {
-            // console.log(aid, cid, cookies);
-            GM_xmlhttpRequest({
-                method: 'GET',
-                // 1080p dash --> https://api.bilibili.com/x/player/playurl?avid=1551880723&cid=1473551215&qn=80&fnval=4048
-                // 720p mp4 --> https://api.bilibili.com/x/player/playurl?avid=1551880723&cid=1473551215&qn=64
-                url: 'https://api.bilibili.com/x/player/playurl?avid=' + aid.toString() + '&cid=' + cid.toString() + '&fnval=1',
-                responseType: 'json',
-                anonymous: true,
-                cookie: cookies,
-                onload: function({ response }) {
-                    // console.log(response);
-                    resolve(response);
-                },
-                onabort: function(e) { resolve(null); },
-                onerror: function(e) { resolve(null); },
-                ontimeout: function(e) { resolve(null); },
-            });
-        });*/
-        return oXMLHttpRequest('https://api.bilibili.com/x/player/playurl?avid=' + aid.toString() + '&cid=' + cid.toString() + '&fnval=' + fnval, 'json');
-    }
-
-    async function muxDashToMp4(vidUrl, audUrl, vidName) {
-        const [vidBuf, audBuf] = await Promise.all([downloadWrapper(vidUrl, 'Video - ' + vidName, 'arraybuffer'), downloadWrapper(audUrl, 'Audio - ' + vidName, 'arraybuffer')]);
-        // console.log('vidBuf: ', vidBuf);
-        // console.log('audBuf: ', audBuf);
-        if ((vidBuf === null) || (audBuf === null)) return false;
-        const ffmpeg = await getFFmpeg();
-        downloadQueueTitle.style.display = 'block';
-        const progress = downloadQueueCard.appendChild(progressBar.cloneNode(true));
-        progress.lastChild.remove();
-        const progressName = 'Muxing - ' + vidName.slice(0, 17);
-        progress.firstChild.textContent = progressName + ' [0%]';
-        ffmpeg.on('progress', ({ ratio }) => {
-            if ((ratio >= 0) && (ratio <= 100)) {
-                const percent = ratio * 100;
-                progress.style.background = 'linear-gradient(to right, green ' + percent + '%, transparent ' + percent + '%)';
-                progress.firstChild.textContent = progressName + ' [' + percent.toFixed(0) + '%]';
-            }
-        });
-        const id = crypto.randomUUID();
-        await Promise.all([ffmpeg.writeFile(`v_${id}.m4s`, new Uint8Array(vidBuf)), ffmpeg.writeFile(`a_${id}.m4s`, new Uint8Array(audBuf))]);
-        await ffmpeg.exec(['-i', `v_${id}.m4s`, '-i', `a_${id}.m4s`, '-c', 'copy', '-map', '0:v:0', '-map', '1:a:0', '-movflags', '+faststart', `out_${id}.mp4`]);
-        let out = await ffmpeg.readFile(`out_${id}.mp4`);
-        await Promise.all([ffmpeg.deleteFile(`v_${id}.m4s`), ffmpeg.deleteFile(`a_${id}.m4s`), ffmpeg.deleteFile(`out_${id}.mp4`)]);
-        // console.log(vidName);
-        saveBlobAs(new Blob([out.buffer], { type: 'video/mp4' }), vidName);
-        progress.style.background = 'linear-gradient(to right, green 100%, transparent 100%)';
-        progress.firstChild.textContent = progressName + ' [100%]';
-        out = null;
-        setTimeout(() => {
-            progress.remove();
-            if(downloadQueueCard.childElementCount == 1) downloadQueueTitle.style.display = 'none';
-        }, 1000);
-        return true;
-    }
-
-    async function downloadVideo(data) {
-        let vidRes;
-        if (GM_getValue('enableDownloadDashVideo', true)) {
-            await getFFmpeg();
-            vidRes = await getVideoDetail(data.aid, data.cid/*, cookies*/, '4048');
-            // console.log(vidRes);
-            if (vidRes.data.dash) {
-                const vidUrl = vidRes.data.dash.video[0].baseUrl;
-                // console.log(vidUrl);
-                const audUrl = vidRes.data.dash.audio[0].baseUrl;
-                // console.log(audUrl);
-                // const videoTimeLength = vidRes.data.dash.duration; // in seconds;
-                // if (listDownloading && GM_getValue('listDownloadEnableSkipVidLength', false) && ((videoTimeLength) > GM_getValue('listDownloadSkipVidLength', 60))) return null;
-                const originalName = vidUrl.split('?')[0].split('/')[vidUrl.split('?')[0].split('/').length - 1].split('.')[0] + '.mp4';
-                const vidName = getVidName(GM_getValue('dlVidName', '{original}.{ext}'), originalName, data);
-                // console.log(vidName);
-                return await muxDashToMp4(vidUrl, audUrl, vidName);
-            }
-        }
-        if (!vidRes) vidRes = await getVideoDetail(data.aid, data.cid/*, cookies*/, '1');
-        // console.log(vidRes);
-        const vidUrl = vidRes.data.durl[0].url;
-        // console.log(vidUrl);
-        // const videoTimeLength = vidRes.data.timelength; // in microseconds;
-        // if (listDownloading && GM_getValue('listDownloadEnableSkipVidLength', false) && ((videoTimeLength / 1000) > GM_getValue('listDownloadSkipVidLength', 60))) return null;
-        const originalName = vidUrl.split('?')[0].split('/')[vidUrl.split('?')[0].split('/').length - 1];
-        const vidName = getVidName(GM_getValue('dlVidName', '{original}.{ext}'), originalName, data);
-        // console.log(vidName);
-        return await downloadWrapper(vidUrl, vidName);
-    }
-
-    async function handleVideoDownload(bvid, buttonText) {
-        if (buttonText) {
-            buttonText.textContent = '下载中……';
-        }
-        const vidInfoRes = await getVideoInfo(bvid);
-        // console.log(vidInfoRes);
-        const success = await downloadVideo(vidInfoRes.data);
-        if (success) {
-            GM_setValue('bog-dl-' + bvid, true);
-            if (buttonText) {
-                buttonText.textContent = '已下载';
-            }
-        } else {
-            if (buttonText) {
-                buttonText.textContent = '下载';
-            }
-        }
-    }
-
     // For 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail?dynamic_id=' + dynId
     // But it has deprecated.
-    /*async function handleVideoDynamic(data) {
-        // console.log('handleVideoDynamic');
-        // console.log(data);
-        const card = JSON.parse(data.card.card);
-        // const aid = card.aid;
-        // const cid = card.cid;
-        // console.log(aid, cid);
-        // const cookies = await getAllCookies();
-        // const cookies = 'SESSDATA=' + await getCookie('SESSDATA');
-        // console.log(cookies);
-        // await downloadVideo(aid, cid);
-        const videoTimeLength = card.duration;
-        if (listDownloading && GM_getValue('listDownloadEnableSkipVidLength', false) && (videoTimeLength > GM_getValue('listDownloadSkipVidLength', 60))) {
-            return true;
-        }
-        const bvid = data.card.desc.bvid;
-        await handleVideoDownload(bvid);
-    }*/
-
-    async function handleVideoDynamic(data) {
-        // console.log('handleVideoDynamic');
-        // console.log(data);
-        const videoTimeLength = parseDurationTextToSeconds(data.duration_text);
-        if (listDownloading && GM_getValue('listDownloadEnableSkipVidLength', false) && (videoTimeLength > GM_getValue('listDownloadSkipVidLength', 60))) {
-            return true;
-        }
-        const bvid = data.bvid;
-        await handleVideoDownload(bvid);
-    }
-
     function getDynamicDetail(dynId) {
         /*return new Promise(function(resolve, reject) {
             GM_xmlhttpRequest({
@@ -1253,18 +907,13 @@
             }
             // console.log(item);
             const major = item.modules.module_dynamic.major;
-            if (major.archive) {
-                // 视频
-                // console.log('video');
-                skipped = await handleVideoDynamic(major.archive);
-            } else if (major.draw || major.opus) {
+            if (major.draw || major.opus) {
                 // 图片
                 // console.log('picture');
                 skipped = await handleImageDynamic(item);
             } else {
-                // major.live_rcmd // 直播
-                // major.
-                if (!listDownloading) alert('无法下载！');
+                // 视频（major.archive）、直播（major.live_rcmd）等不在本脚本范围内
+                if (!listDownloading) alert('该动态不含图片，无法下载！');
                 return true;
             }
             if (!skipped) {
@@ -1478,98 +1127,14 @@
                     }*/
                 });
                 card.addEventListener('mouseenter', checkDynDownloadedHandler);
-            } else if(GM_getValue('enableVideoDownload', true) && card.getElementsByClassName('bili-tabs__nav__items').length > 0) {
-                // console.log('add video dynamic download button');
-                const buttonBar = card.getElementsByClassName('bili-tabs__nav__items')[0];
-                let downloadButton = document.createElement('div');
-                const videoCard = card.querySelector('a.bili-dyn-card-video');
-                // console.log(videoCard);
-                const descTitle = card.querySelector("div.dyn-card-opus div[data-url]");
-                // console.log("descTitle: ", descTitle);
-                let cardDynId, cardBvid;
-                if (videoCard) {
-                    cardBvid = videoCard.href.match(/BV[a-z|A-Z|0-9]{10}/g)[0];
-                }
-                if (descTitle) {
-                    cardDynId = descTitle.getAttribute("data-url").match(/\/(\d+)$/)?.[1];
-                }
-                downloadButton.textContent = ((cardDynId && GM_getValue('bog-dl-' + cardDynId, false)) || (cardBvid && GM_getValue('bog-dl-' + cardBvid, false))) ? '已下载' : '下载';
-                downloadButton.classList.add('bili-tabs__nav__item', 'download-button');
-                downloadButton.addEventListener('click', async function(event) {
-                    // console.log('click');
-                    event.preventDefault();
-                    const content = this.closest('div.card');
-                    // console.log(content);
-                    const opusCard = content.querySelector('div.dyn-card-opus');
-                    // console.log("opusCard: ", opusCard);
-                    const videoCard = content.querySelector('a.bili-dyn-card-video');
-                    // console.log(videoCard);
-                    let dynId;
-                    if (opusCard) {
-                        dynId = opusCard.$log?.click.value.card_id;
-                    } else if (videoCard) {
-                        dynId = videoCard.$log?.click.value.card_id;
-                    }
-                    await handleDynamicDownload(dynId, this);
-                    /*const list = content.querySelectorAll('div.bili-album__preview__picture,div.preview__picture__img.b-img');
-                    // console.log(list);
-                    if (list.length > 0) {
-                        for (let j = 0; j < list.length; j++) {
-                            let imgUrl;
-                            if (list[j].querySelector('img')) {
-                                imgUrl = list[j].querySelector('img').src.split(/@/)[0];
-                            } else {
-                                imgUrl = list[j].style.backgroundImage.split(/"|@/)[1];
-                            }
-                            // console.log(imgUrl);
-                            if (imgUrl.startsWith('//')) {
-                                imgUrl = 'https:' + imgUrl;
-                            }
-                            const imgName = imgUrl.split('/')[imgUrl.split('/').length - 1];
-                            // console.log(imgName);
-                            GM_download(imgUrl, imgName);
-                        }
-                    }*/
-                });
-                buttonBar.appendChild(downloadButton);
-                card.addEventListener('mouseenter', checkDynDownloadedHandler);
             }
         }
-    }
-
-    function addPlayPageDownloadButton(buttonBar) {
-        let buttonWrap = document.createElement('div');
-        buttonWrap.className = 'toolbar-left-item-wrap';
-        let button = document.createElement('div');
-        button.className = 'video-toolbar-left-item download-button';
-        let icon = document.createElement('i');
-        icon.className = 'video-toolbar-item-icon';
-        icon.style.width = '36px';
-        icon.style.height = '36px';
-        icon.style.backgroundImage = downloadIcon;
-        icon.style.backgroundRepeat = 'no-repeat';
-        icon.style.backgroundSize = '100% 100%';
-        icon.style.backgroundPosition = 'center';
-        let text = document.createElement('span');
-        const pageBvid = window.location.pathname.match(/BV[a-z|A-Z|0-9]{10}/g)[0];
-        text.textContent = GM_getValue('bog-dl-' + pageBvid, false) ? '已下载' : '下载';
-        button.appendChild(icon);
-        button.appendChild(text);
-        buttonWrap.appendChild(button);
-        buttonBar.appendChild(buttonWrap);
-        button.addEventListener('click', async function(event) {
-            // console.log('click');
-            event.preventDefault();
-            const bvid = window.location.pathname.match(/BV[a-z|A-Z|0-9]{10}/g)[0];
-            // console.log(bvid);
-            handleVideoDownload(bvid, this.querySelector('span'));
-        });
     }
 
     function handleOpusCard(card) {
         // console.log('handleOpusCard');
         // 单篇 opus / 动态详情页的容器不一定带相册类名，用 URL 判定直接挂入口
-         if (pageOpusId() || card.getElementsByClassName('bili-album').length > 0 || card.getElementsByClassName('horizontal-scroll-album').length > 0 || card.getElementsByClassName('opus-module-top__album__cover').length > 0 || (GM_getValue('enableVideoDownload', true) && card.getElementsByClassName('bili-dyn-card-video').length > 0)) {
+         if (pageOpusId() || card.getElementsByClassName('bili-album').length > 0 || card.getElementsByClassName('horizontal-scroll-album').length > 0 || card.getElementsByClassName('opus-module-top__album__cover').length > 0) {
              addOpusDownloadButton(card);
          }
     }
@@ -1583,8 +1148,6 @@
                     addDownloadButton(card);
                 });
             });
-            addDownloadButton(card);
-        } else if (GM_getValue('enableVideoDownload', true) && card.getElementsByClassName('bili-dyn-card-video').length > 0 && card.getElementsByClassName('bili-dyn-action like disabled').length === 0) {
             addDownloadButton(card);
         }
     }
@@ -1644,13 +1207,7 @@
                     notLoaded = false;
                     // document.body.removeEventListener('mouseover', bodyMouseOver);
                 }
-            } /* else if (GM_getValue('enableVideoDownload', true) && document.body.querySelector('div.video-toolbar-left-main')) {
-                const buttonBar = document.body.querySelector('div.video-toolbar-left-main');
-                if (buttonBar) {
-                    addPlayPageDownloadButton(buttonBar);
-                    notLoaded = false;
-                }
-            }*/
+            }
         }
     }
 
@@ -1692,7 +1249,7 @@
         modal.style.fontSize = '1rem';
 
         let titleBar = document.createElement('div');
-        titleBar.textContent = '欢迎使用「哔哩图文抓取」脚本';
+        titleBar.textContent = '欢迎使用「bilibili图文抓取」脚本';
         titleBar.style.width = '100%';
         titleBar.style.textAlign = 'center';
         titleBar.style.backgroundColor = 'black';
@@ -1768,74 +1325,7 @@
         question1.appendChild(PicNameExplain2);*/
         modal.appendChild(question1);
 
-        let question2 = document.createElement('p');
-        question2.style.paddingLeft = '2rem';
-        question2.style.paddingRight = '2rem';
-        question2.style.marginTop = '1rem';
-        question2.style.marginBottom = '0';
-        let labelVideoDownload = document.createElement('label');
-        labelVideoDownload.setAttribute('for', 'enableVideoDownload');
-        labelVideoDownload.textContent = '开启视频下载';
-        labelVideoDownload.style.display = 'inline-block';
-        labelVideoDownload.style.paddingRight = '0.2rem';
-        question2.appendChild(labelVideoDownload);
-        let inputVideoDownload = document.createElement('input');
-        inputVideoDownload.type = 'checkbox';
-        inputVideoDownload.id = 'enableVideoDownload';
-        inputVideoDownload.name = 'enableVideoDownload';
-        inputVideoDownload.checked = GM_getValue('enableVideoDownload', true);
-        question2.appendChild(inputVideoDownload);
-        let videoDownloadExplain = document.createElement('p');
-        videoDownloadExplain.textContent = '目前Bilibili视频单文件下载最高只支持720P MP4格式。';
-        videoDownloadExplain.style.marginTop = '0.5rem';
-        videoDownloadExplain.style.marginBottom = '0';
-        videoDownloadExplain.style.color = 'gray';
-        videoDownloadExplain.style.lineHeight = '1.1rem';
-        question2.appendChild(videoDownloadExplain);
-        let labelVidName = document.createElement('label');
-        labelVidName.textContent = '下载视频文件名';
-        labelVidName.setAttribute('for', 'dlVidName');
-        labelVidName.style.display = 'block';
-        labelVidName.style.marginTop = '0.5rem';
-        labelVidName.style.color = GM_getValue('enableVideoDownload', true) ? null : 'gray';
-        question2.appendChild(labelVidName);
-        let inputVidName = document.createElement('input');
-        inputVidName.type = 'text';
-        inputVidName.id = 'dlVidName';
-        inputVidName.name = 'dlVidName';
-        inputVidName.style.marginTop = '0.5rem';
-        inputVidName.style.width = 'calc(100% - 1rem)';
-        inputVidName.style.padding = '0.1rem 0.2rem 0.1rem 0.2rem';
-        inputVidName.style.borderStyle = 'solid';
-        inputVidName.style.borderWidth = '0.14rem';
-        inputVidName.style.borderRadius = '0.2rem';
-        inputVidName.disabled = GM_getValue('enableVideoDownload', true) ? false : true;
-        inputVidName.style.borderColor = GM_getValue('enableVideoDownload', true) ? 'gray' : 'lightgray';
-        inputVidName.defaultValue = GM_getValue('dlVidName', '{username}-{title}-[{bvid}].{ext}');
-        question2.appendChild(inputVidName);
-        let vidNameExplain1 = document.createElement('p');
-        vidNameExplain1.innerHTML = '{original} - 原文件名\n{username} - UP主名称\n{userid} - UP主ID\n{bvid} - 视频BVID\n{aid} - 视频AID\n{cid} - 视频CID\n{title} - 视频标题\n{ext} - 文件后缀\n{YYYY} {MM} {DD} {HH} {mm} {ss} - 原博发布时\n间的年份、月份、日期、小时、分钟、秒，可\n分开独立使用\n{content} - 视频简介（最多前25个字符）';
-        vidNameExplain1.style.marginTop = '0.5rem';
-        vidNameExplain1.style.marginBottom = '0';
-        vidNameExplain1.style.whiteSpace = 'pre';
-        vidNameExplain1.style.color = 'gray';
-        vidNameExplain1.style.lineHeight = '1.1rem';
-        question2.appendChild(vidNameExplain1);
-        let labelEnableDownloadDashVideo = document.createElement('label');
-        labelEnableDownloadDashVideo.setAttribute('for', 'enableDownloadDashVideo');
-        labelEnableDownloadDashVideo.textContent = '启用下载DASH形式视频（耗费性能）';
-        labelEnableDownloadDashVideo.style.display = 'inline-block';
-        labelEnableDownloadDashVideo.style.paddingRight = '0.2rem';
-        labelEnableDownloadDashVideo.style.marginTop = '0.5rem';
-        question2.appendChild(labelEnableDownloadDashVideo);
-        let inputEnableDownloadDashVideo = document.createElement('input');
-        inputEnableDownloadDashVideo.type = 'checkbox';
-        inputEnableDownloadDashVideo.id = 'enableDownloadDashVideo';
-        inputEnableDownloadDashVideo.name = 'enableDownloadDashVideo';
-        inputEnableDownloadDashVideo.style.marginTop = '0.5rem';
-        inputEnableDownloadDashVideo.checked = GM_getValue('enableDownloadDashVideo', true);
-        question2.appendChild(inputEnableDownloadDashVideo);
-        modal.appendChild(question2);
+
 
         /*let question3 = document.createElement('p');
         question3.style.paddingLeft = '2rem';
@@ -2116,43 +1606,6 @@
         listDownloadRetryAttempsLimitExplain.style.color = 'gray';
         listDownloadRetryAttempsLimitExplain.style.lineHeight = '1.1rem';
         question6.appendChild(listDownloadRetryAttempsLimitExplain);
-        let labelListDownloadEnableSkipVidLength = document.createElement('label');
-        labelListDownloadEnableSkipVidLength.setAttribute('for', 'listDownloadEnableSkipVidLength');
-        labelListDownloadEnableSkipVidLength.textContent = '跳过过长的视频';
-        labelListDownloadEnableSkipVidLength.style.display = 'inline-block';
-        labelListDownloadEnableSkipVidLength.style.paddingRight = '0.2rem';
-        labelListDownloadEnableSkipVidLength.style.marginTop = '0.5rem';
-        question6.appendChild(labelListDownloadEnableSkipVidLength);
-        let inputListDownloadEnableSkipVidLength = document.createElement('input');
-        inputListDownloadEnableSkipVidLength.type = 'checkbox';
-        inputListDownloadEnableSkipVidLength.id = 'listDownloadEnableSkipVidLength';
-        inputListDownloadEnableSkipVidLength.name = 'listDownloadEnableSkipVidLength';
-        inputListDownloadEnableSkipVidLength.style.marginTop = '0.5rem';
-        inputListDownloadEnableSkipVidLength.checked = GM_getValue('listDownloadEnableSkipVidLength', false);
-        question6.appendChild(inputListDownloadEnableSkipVidLength);
-        question6.appendChild(document.createElement('br'));
-        let labelListDownloadSkipVidLength = document.createElement('label');
-        labelListDownloadSkipVidLength.setAttribute('for', 'listDownloadSkipVidLength');
-        labelListDownloadSkipVidLength.textContent = '跳过超过多少秒的视频';
-        labelListDownloadSkipVidLength.style.display = 'inline-block';
-        labelListDownloadSkipVidLength.style.paddingRight = '0.2rem';
-        labelListDownloadSkipVidLength.style.marginTop = '0.5rem';
-        labelListDownloadSkipVidLength.style.color = GM_getValue('listDownloadEnableSkipVidLength', false) ? null : 'gray';
-        question6.appendChild(labelListDownloadSkipVidLength);
-        let inputListDownloadSkipVidLength = document.createElement('input');
-        inputListDownloadSkipVidLength.type = 'number';
-        inputListDownloadSkipVidLength.id = 'listDownloadSkipVidLength';
-        inputListDownloadSkipVidLength.name = 'listDownloadSkipVidLength';
-        inputListDownloadSkipVidLength.style.marginTop = '0.5rem';
-        inputListDownloadSkipVidLength.style.width = '3rem';
-        inputListDownloadSkipVidLength.style.padding = '0.1rem 0.2rem 0.1rem 0.2rem';
-        inputListDownloadSkipVidLength.style.borderStyle = 'solid';
-        inputListDownloadSkipVidLength.style.borderWidth = '0.14rem';
-        inputListDownloadSkipVidLength.style.borderRadius = '0.2rem';
-        inputListDownloadSkipVidLength.style.borderColor = GM_getValue('listDownloadEnableSkipVidLength', false) ? 'gray' : 'lightgray';
-        inputListDownloadSkipVidLength.defaultValue = GM_getValue('listDownloadSkipVidLength', 60);
-        inputListDownloadSkipVidLength.disabled = GM_getValue('listDownloadEnableSkipVidLength', false) ? false : true;
-        question6.appendChild(inputListDownloadSkipVidLength);
         modal.appendChild(question6);
 
         /*inputRetweetMode.addEventListener('change', function(event) {
@@ -2247,39 +1700,6 @@
             }
         });*/
 
-        inputVideoDownload.addEventListener('change', function(event) {
-            if (event.currentTarget.checked) {
-                // labelRetweetFileName.style.display = 'block';
-                // inputRetweetFileName.style.display = 'block';
-                // retweetFileNameExplain.style.display = 'block';
-                inputVidName.disabled = false;
-                labelVidName.style.color = null;
-                inputVidName.style.borderColor = 'gray';
-                labelEnableDownloadDashVideo.style.color = null;
-                inputEnableDownloadDashVideo.disabled = false;
-            } else {
-                // labelRetweetFileName.style.display = 'none';
-                // inputRetweetFileName.style.display = 'none';
-                // retweetFileNameExplain.style.display = 'none';
-                inputVidName.disabled = true;
-                labelVidName.style.color = 'gray';
-                inputVidName.style.borderColor = 'lightgray';
-                labelEnableDownloadDashVideo.style.color = 'gray';
-                inputEnableDownloadDashVideo.disabled = true;
-            }
-        });
-
-        inputListDownloadEnableSkipVidLength.addEventListener('change', function(event) {
-            if (event.currentTarget.checked) {
-                labelListDownloadSkipVidLength.style.color = null;
-                inputListDownloadSkipVidLength.disabled = false;
-                inputListDownloadSkipVidLength.style.borderColor = 'gray';
-            } else {
-                labelListDownloadSkipVidLength.style.color = 'gray';
-                inputListDownloadSkipVidLength.disabled = true;
-                inputListDownloadSkipVidLength.style.borderColor = 'lightgray';
-            }
-        });
 
         /* ---- 增强补丁：日期区间 + 篇数上限（追加在原有设置项之后） ---- */
         let questionRange = document.createElement('p');
@@ -2378,14 +1798,8 @@
                 document.getElementById('dlPicName').focus();
                 return;
             }*/
-            let refreshFlag = false;
-            if (document.getElementById('enableVideoDownload').checked !== GM_getValue('enableVideoDownload', true)) {
-                refreshFlag = true;
-            }
             GM_setValue('dlPicName', document.getElementById('dlPicName').value);
             GM_setValue('dlUseSubdir', document.getElementById('dlUseSubdir').checked);
-            GM_setValue('enableVideoDownload', document.getElementById('enableVideoDownload').checked);
-            GM_setValue('dlVidName', document.getElementById('dlVidName').value);
             // GM_setValue('retweetMode', document.getElementById('retweetMode').checked);
             // GM_setValue('retweetFileName', document.getElementById('retweetFileName').value);
             // GM_setValue('zipMode', document.getElementById('zipMode').checked);
@@ -2399,18 +1813,10 @@
             GM_setValue('listDownloadRetryAttempsLimit', isNaN(Math.round(listDownloadRetryAttempsLimitValue)) ? 3 : Math.round(listDownloadRetryAttempsLimitValue));
             const listDownloadSleepGapSecondsValue = document.getElementById('listDownloadSleepGapSeconds').value;
             GM_setValue('listDownloadSleepGapSeconds', isNaN(Math.round(listDownloadSleepGapSecondsValue)) ? 2 : Math.round(listDownloadSleepGapSecondsValue));
-            GM_setValue('listDownloadEnableSkipVidLength', document.getElementById('listDownloadEnableSkipVidLength').checked);
-            const listDownloadSkipVidLengthValue = document.getElementById('listDownloadSkipVidLength').value;
-            GM_setValue('listDownloadSkipVidLength', isNaN(Math.round(listDownloadSkipVidLengthValue)) ? 60 : Math.round(listDownloadSkipVidLengthValue));
-            GM_setValue('enableDownloadDashVideo', document.getElementById('enableDownloadDashVideo').checked);
             GM_setValue('listDownloadSinceDate', inputSince.value || '');
             GM_setValue('listDownloadUntilDate', inputUntil.value || '');
             GM_setValue('listDownloadLimit', inputLimit.value || '');
             GM_setValue('isSet', settingVersion);
-            if (refreshFlag) {
-                alert('已' + (document.getElementById('enableVideoDownload').checked ? '开启' : '关闭') + '视频下载功能，将在页面刷新后生效。');
-                location.reload();
-            }
             window.removeEventListener('resize', resizeWindow);
             document.body.removeChild(modal);
             document.body.removeChild(bg);
@@ -2460,19 +1866,6 @@
                     for (const node of mutation.addedNodes) {
                         // console.log(node);
                         handleCard(node);
-                    }
-                } else if (GM_getValue('enableVideoDownload', true) && mutation.target.tagName === 'BODY') {
-                    for (const node of mutation.addedNodes) {
-                        if (node.nodeType === 1 && node.tagName === 'DIV'/* && node.classList.contains('lt-row')*/) {
-                            // console.log(mutation);
-                            const buttonBar = document.body.querySelector('div.video-toolbar-left-main');
-                            mutationCount += 1;
-                            // console.log(mutationCount);
-                            if (mutationCount === 6 && buttonBar && !buttonBar.querySelector('div.download-button')) {
-                                // console.log(mutation);
-                                addPlayPageDownloadButton(buttonBar);
-                            }
-                        }
                     }
                 }
             }
@@ -2790,15 +2183,7 @@
         // console.log('Pathname changed:', window.location);
         showListDownloadButton();
     };
-/*
-    if ((window.location.host === 'www.bilibili.com') && window.location.pathname.match(/^\/bangumi\/play\/ep\d+/)) {
-        const buttonBar = document.body.querySelector('div.toolbar-left');
-        console.log(buttonBar);
-        if (!buttonBar.querySelector('div.download-button')) {
-            addPlayPageDownloadButton(buttonBar);
-        }
-    }
-*/
+
     addSettingButton();
     addListDownloadButton();
     showListDownloadButton();
