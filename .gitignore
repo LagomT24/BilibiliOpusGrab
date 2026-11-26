@@ -11,6 +11,13 @@ __pycache__/
 venv/
 .env
 
+# 第三方参考脚本（他人作品，不入库）
+下载Bilibili动态页面图片和视频.txt
+参考脚本/
+
+# 本地工具状态
+.workbuddy/
+
 # 编辑器
 .vscode/
 .idea/
