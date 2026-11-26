@@ -1,14 +1,13 @@
 // ==UserScript==
-// @name         Bilibili 图文原图下载（本地增强版）
-// @name:zh-CN   下载Bilibili动态页面图片和视频（本地增强版）
-// @version      1.4.2
-// @description  Download pictures from bilibili timeline, space opus list and single opus page.
-// @description:zh-CN 在 OWENDSWANG 脚本基础上扩展：支持空间「图文」列表页与单篇 opus 页。
-// @author       OWENDSWANG / local
-// @icon         https://avatars.githubusercontent.com/u/9076865?s=40&v=4
+// @name         BiliOpusGrab
+// @name:zh-CN   哔哩图文抓取
+// @namespace    bili-opus-grab
+// @version      0.9.0
+// @description  Batch-download original images from bilibili dynamics, space opus list and single opus pages.
+// @description:zh-CN 批量下载 B 站动态、空间图文列表与单篇 opus 的原图，支持日期区间、自定义命名与视频下载。
+// @author       WangLu
 // @license      MIT
-// @homepage     https://greasyfork.org/scripts/421885
-// @supportURL   https://github.com/owendswang/Download-Pictures-from-Bilibili-Timeline/issues
+// @icon         data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23FB7299'/%3E%3Ccircle cx='22' cy='21' r='5' fill='%23fff'/%3E%3Cpath d='M13 45l13-15 8 9 6-6 11 12z' fill='%23fff'/%3E%3C/svg%3E
 // @match        https://t.bilibili.com/*
 // @match        https://space.bilibili.com/*/dynamic*
 // @match        https://space.bilibili.com/*/upload/opus*
@@ -30,9 +29,6 @@
 // @grant        GM_setValue
 // @grant        GM_cookie
 // @grant        GM_registerMenuCommand
-// @namespace    https://greasyfork.org/users/738244
-// @downloadURL https://update.greasyfork.org/scripts/421885/Bilibili%20Download%20Pictures%20and%20Videos.user.js
-// @updateURL https://update.greasyfork.org/scripts/421885/Bilibili%20Download%20Pictures%20and%20Videos.meta.js
 // ==/UserScript==
 
 (async function() {
@@ -114,7 +110,7 @@
 
     /* =====================================================================
      * 增强补丁：opus 页面支持 / 当日连续序号 / 子目录输出
-     * （在 OWENDSWANG v1.3.0 基础上追加，未改动原有 UI 结构）
+     * （UI 结构沿用上游脚本 OWENDSWANG v1.3.0，MIT 许可；本脚本自 0.9.0 起独立发版）
      * ================================================================== */
 
     const OPUS_LIST_API = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/opus/feed/space';
@@ -212,7 +208,7 @@
     /* ---------- 命名映射：同一张图重复处理时复用已分配的文件名 ---------- */
 
     function loadPicNameMap(uid) {
-        const m = GM_getValue('picmap-' + uid, null);
+        const m = GM_getValue('bog-map-' + uid, null);
         return (m && typeof m === 'object') ? m : {};
     }
 
@@ -225,7 +221,7 @@
         if (map[key]) return map[key];
         const name = makeName();
         map[key] = name;
-        GM_setValue('picmap-' + uid, map);
+        GM_setValue('bog-map-' + uid, map);
         return name;
     }
 
@@ -330,7 +326,7 @@
             // 管理器未授权 GM_download：退化为单层文件名，至少保证能落盘
             return downloadWrapper(url, name.split('/').pop());
         }
-        console.log('[bili-dl] GM_download name =', name);
+        console.log('[bog] GM_download name =', name);
         const progress = downloadQueueCard.appendChild(progressBar.cloneNode(true));
         const progressName = name.length > 20 ? (name.substring(0, 20) + '...') : name;
         progress.firstChild.textContent = progressName + ' [0%]';
@@ -365,7 +361,7 @@
                 onerror: function(e) {
                     // 子目录写入不被支持时，退化为单层文件名重试一次，避免整张图失败
                     if (allowFlatten !== false && name.indexOf('/') !== -1) {
-                        console.warn('[bili-dl] 子目录写入失败，改用单层文件名重试:', e && e.error, name);
+                        console.warn('[bog] 子目录写入失败，改用单层文件名重试:', e && e.error, name);
                         progress.remove();
                         resolve(downloadWithGm(url, name.split('/').pop(), false));
                         return;
@@ -1101,7 +1097,7 @@
         // console.log(vidInfoRes);
         const success = await downloadVideo(vidInfoRes.data);
         if (success) {
-            GM_setValue('blDl-' + bvid, true);
+            GM_setValue('bog-dl-' + bvid, true);
             if (buttonText) {
                 buttonText.textContent = '已下载';
             }
@@ -1209,7 +1205,7 @@
                         break;
                 }
                 if (!skipped) {
-                    GM_setValue('blDl-' + dynId, true);
+                    GM_setValue('bog-dl-' + dynId, true);
                 }
                 if (downloadButton) {
                     if (!skipped) {
@@ -1226,7 +1222,7 @@
         } catch(e) {
             console.error(e);
             if (downloadButton) {
-                downloadButton.textContent = GM_getValue('blDl-' + dynId, false) ? '已下载' : '下载';
+                downloadButton.textContent = GM_getValue('bog-dl-' + dynId, false) ? '已下载' : '下载';
             }
             if (!listDownloading) alert('无法下载！');
             return false;
@@ -1272,7 +1268,7 @@
                 return true;
             }
             if (!skipped) {
-                GM_setValue('blDl-' + dynId, true);
+                GM_setValue('bog-dl-' + dynId, true);
             }
             if (downloadButton) {
                 if (!skipped) {
@@ -1285,7 +1281,7 @@
         } catch(e) {
             console.error(e);
             if (downloadButton) {
-                downloadButton.textContent = GM_getValue('blDl-' + dynId, false) ? '已下载' : '下载';
+                downloadButton.textContent = GM_getValue('bog-dl-' + dynId, false) ? '已下载' : '下载';
             }
             if (!listDownloading) alert('无法下载！');
             return false;
@@ -1302,7 +1298,7 @@
         // console.log('pageDynId: ', pageDynId);
         let downloadButton = document.createElement(buttonBar ? 'div' : 'button');
         downloadButton.classList.add('download-button');
-        downloadButton.textContent = GM_getValue('blDl-' + pageDynId, false) ? '已下载' : '下载';
+        downloadButton.textContent = GM_getValue('bog-dl-' + pageDynId, false) ? '已下载' : '下载';
         if (buttonBar) {
             downloadButton.classList.add('bili-tabs__nav__item');
         } else {
@@ -1384,7 +1380,7 @@
         // console.log('dynId: ', dynId, ', BvId: ', BvId);
         if (dynId || BvId) {
             const downloadBtnTextEle = card.querySelector('div.bili-dyn-item__footer > div.bili-dyn-item__action.download-button > div.bili-dyn-action > span') || card.querySelector('div.bili-tabs__nav__items div.bili-tabs__nav__item.download-button');
-            if (downloadBtnTextEle && (downloadBtnTextEle !== '已下载') && (GM_getValue('blDl-' + dynId, false) || GM_getValue('blDl-' + BvId, false))) {
+            if (downloadBtnTextEle && (downloadBtnTextEle !== '已下载') && (GM_getValue('bog-dl-' + dynId, false) || GM_getValue('bog-dl-' + BvId, false))) {
                 downloadBtnTextEle.textContent = '已下载';
                 return true;
             }
@@ -1430,7 +1426,7 @@
                 }
                 // console.log("cardDynId: ", cardDynId, ", cardBvid: ", cardBvid);
                 let text = document.createElement('span');
-                text.textContent = ((cardDynId && GM_getValue('blDl-' + cardDynId, false)) || (cardBvid && GM_getValue('blDl-' + cardBvid, false))) ? '已下载' : '下载';
+                text.textContent = ((cardDynId && GM_getValue('bog-dl-' + cardDynId, false)) || (cardBvid && GM_getValue('bog-dl-' + cardBvid, false))) ? '已下载' : '下载';
                 span.appendChild(icon);
                 span.appendChild(text);
                 downloadButton.appendChild(span);
@@ -1497,7 +1493,7 @@
                 if (descTitle) {
                     cardDynId = descTitle.getAttribute("data-url").match(/\/(\d+)$/)?.[1];
                 }
-                downloadButton.textContent = ((cardDynId && GM_getValue('blDl-' + cardDynId, false)) || (cardBvid && GM_getValue('blDl-' + cardBvid, false))) ? '已下载' : '下载';
+                downloadButton.textContent = ((cardDynId && GM_getValue('bog-dl-' + cardDynId, false)) || (cardBvid && GM_getValue('bog-dl-' + cardBvid, false))) ? '已下载' : '下载';
                 downloadButton.classList.add('bili-tabs__nav__item', 'download-button');
                 downloadButton.addEventListener('click', async function(event) {
                     // console.log('click');
@@ -1556,7 +1552,7 @@
         icon.style.backgroundPosition = 'center';
         let text = document.createElement('span');
         const pageBvid = window.location.pathname.match(/BV[a-z|A-Z|0-9]{10}/g)[0];
-        text.textContent = GM_getValue('blDl-' + pageBvid, false) ? '已下载' : '下载';
+        text.textContent = GM_getValue('bog-dl-' + pageBvid, false) ? '已下载' : '下载';
         button.appendChild(icon);
         button.appendChild(text);
         buttonWrap.appendChild(button);
@@ -1696,7 +1692,7 @@
         modal.style.fontSize = '1rem';
 
         let titleBar = document.createElement('div');
-        titleBar.textContent = '欢迎使用“下载Bilibili动态页面图片”脚本';
+        titleBar.textContent = '欢迎使用「哔哩图文抓取」脚本';
         titleBar.style.width = '100%';
         titleBar.style.textAlign = 'center';
         titleBar.style.backgroundColor = 'black';
