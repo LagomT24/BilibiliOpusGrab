@@ -182,11 +182,23 @@ body {
 #bog-queue::-webkit-scrollbar-thumb { background: var(--bog-line-2); border-radius: 3px; }
 
 .bog-queue-title {
-  flex: none;
-  display: flex; align-items: baseline; justify-content: space-between;
-  padding: 0 4px 2px;
+  position: sticky; top: 0; z-index: 2; flex: none;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 4px 4px 5px;
   font-size: 11px; color: var(--bog-ink-3); letter-spacing: .04em;
+  background: var(--bog-surface); border-radius: 6px;
 }
+
+.bog-queue-ctrls { display: inline-flex; align-items: center; gap: 10px; }
+
+.bog-queue-ctrl {
+  border: 0; background: transparent; padding: 0;
+  font-family: inherit; font-size: 11px; line-height: 1;
+  color: var(--bog-ink-3); cursor: pointer; transition: color .15s;
+}
+
+.bog-queue-ctrl:hover { color: var(--bog-pink-hover); }
+.bog-queue-ctrl.is-danger:hover { color: var(--bog-danger); }
 
 .q-item {
   position: relative; overflow: hidden; flex: none;
@@ -472,8 +484,11 @@ input[type="text"]:focus, input[type="date"]:focus, input[type="number"]:focus {
 
 <div id="bog-queue">
   <div class="bog-queue-title">
-    <span>下载队列</span>
-    <span>1 / 3</span>
+    <span id="queueLabel">下载队列 · 3</span>
+    <span class="bog-queue-ctrls">
+      <button class="bog-queue-ctrl" id="btnPause" onclick="togglePause()">暂停</button>
+      <button class="bog-queue-ctrl is-danger" onclick="cancelAll()">取消</button>
+    </span>
   </div>
   <div class="q-item" style="--p: 62">
     <span class="q-name">花久花酒 2026.10.19 (3).png</span>
@@ -634,6 +649,57 @@ function insertToken(token) {
   input.focus();
   input.setSelectionRange(start + token.length, start + token.length);
 }
+
+var paused = false;
+
+function queueItems() {
+  return Array.prototype.slice.call(document.querySelectorAll('#bog-queue .q-item'));
+}
+
+function renderQueueLabel() {
+  var n = queueItems().length;
+  var queue = document.getElementById('bog-queue');
+  document.getElementById('queueLabel').textContent = (paused ? '已暂停' : '下载队列') + (n > 0 ? ' · ' + n : '');
+  queue.style.display = (n > 0 || paused) ? 'flex' : 'none';
+}
+
+function togglePause() {
+  paused = !paused;
+  document.getElementById('btnPause').textContent = paused ? '继续' : '暂停';
+  renderQueueLabel();
+}
+
+function cancelAll() {
+  paused = false;
+  document.getElementById('btnPause').textContent = '暂停';
+  queueItems().forEach(function (el) { el.remove(); });
+  renderQueueLabel();
+}
+
+function tick() {
+  if (paused) return;
+  var active = queueItems().filter(function (el) {
+    return !el.classList.contains('is-err') && !el.dataset.done;
+  })[0];
+  if (!active) return;
+
+  var p = parseFloat(active.style.getPropertyValue('--p')) || 0;
+  if (p >= 100) {
+    active.dataset.done = '1';
+    setTimeout(function () { active.remove(); renderQueueLabel(); }, 600);
+    return;
+  }
+  p = Math.min(100, p + 1.2);
+  active.style.setProperty('--p', p.toFixed(1));
+  var pct = active.querySelector('.q-pct');
+  if (pct) {
+    pct.classList.remove('is-wait');
+    pct.textContent = Math.round(p) + '%';
+  }
+}
+
+renderQueueLabel();
+setInterval(tick, 120);
 </script>
 
 </body>
