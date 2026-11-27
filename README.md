@@ -9,7 +9,7 @@
 | 油猴脚本 | `bilibili-opus-grab.user.js` | 浏览时随手下载单篇或整页列表，免登录、免部署 |
 | Python 爬虫 | `bilibili_opus_grab.py` | 本地大批量备份，带断点续传与分辨率校验 |
 
-> 只处理图片。视频、直播、专栏、番剧不在功能范围内（0.9.0 已移除参考脚本自带的视频下载）。
+> 只处理图片。视频、直播、专栏、番剧不在功能范围内。
 
 **当前版本：1.0.0** — 界面改版版。脚本入口从页面左边缘的三个灰按钮收成左下角一个悬浮胶囊，设置面板重做分组与控件，下载队列支持**暂停 / 继续 / 取消**。功能逻辑与 0.9.0 一致，未新增设置项。
 
@@ -29,6 +29,7 @@ bilibili-opus-grab/                # 仓库根目录（GitHub: BilibiliOpusGrab�
 ├── bilibili_opus_grab.py          # 命令行爬虫
 ├── requirements.txt               # Python 依赖
 ├── README.md
+├── LICENSE                        # MIT 许可全文（含原作者版权声明）
 ├── .gitignore
 ├── data/                          # 运行期状态，本地生成，不入库
 │   ├── list.json                  # 作品列表
@@ -38,10 +39,9 @@ bilibili-opus-grab/                # 仓库根目录（GitHub: BilibiliOpusGrab�
 │   ├── failed_pics.json           # 下载失败的图片
 │   └── recompressed.json          # 被 CDN 重编码过的图片清单
 ├── images/                        # Python 默认输出目录，本地生成，不入库
-└── 下载Bilibili动态页面图片和视频.txt   # 上游参考脚本，仅本地保留，不入库
 ```
 
-`data/`、`images/`、`__pycache__/` 以及参考脚本都写在 `.gitignore` 中，不会被提交。
+`data/`、`images/`、`__pycache__/` 都在 `.gitignore` 中，不会被提交。
 
 ## 安装
 
@@ -52,7 +52,7 @@ bilibili-opus-grab/                # 仓库根目录（GitHub: BilibiliOpusGrab�
    - 克隆仓库后，把 `bilibili-opus-grab.user.js` 拖进浏览器窗口，管理器会自动弹出安装页；
    - 或打开管理器面板 →「添加新脚本」，用文件内容整体覆盖编辑器后保存。
 3. 首次安装或版本升级后会弹出设置面板（`settingVersion = 6`），确认文件名模板即可开始使用。
-4. 若此前装过上游脚本或旧版本（`@namespace` 不同），请先在管理器里删除旧条目，避免两份脚本同时挂载、重复生成按钮。
+4. 若此前装过同类脚本或旧版本（`@namespace` 不同），请先在管理器里删除旧条目，避免两份脚本同时挂载、重复生成按钮。
 
 ### Python 爬虫
 
@@ -186,7 +186,7 @@ images/
    - URL 统一 `https`、去 query、去掉 CDN 的 `@xxx` 压缩后缀，下载时也不声明 `avif/webp`，拿到的就是网页「查看大图」那一档。
    - Python 侧下载后解析 JPEG/PNG/GIF/WebP 头，宽高必须与接口的 `width/height` 一致。
    - 接口的 `size`(KB) 是上传时的旧元数据：约 13% 的历史图片已被 CDN 重编码（实测 `@100q.png` 与默认版本像素完全相同，真原图字节已不存在）。这类图仍会保存并记入 `data/recompressed.json`。
-4. **下载**（油猴）：`GM_xmlhttpRequest` 取 blob → `URL.createObjectURL` → `<a download>`。参考脚本原先依赖的 `GM_download` 在部分管理器下会忽略 `name`，导致文件名退回 CDN 原名，因此默认走扁平保存。
+4. **下载**（油猴）：`GM_xmlhttpRequest` 取 blob → `URL.createObjectURL` → `<a download>`。`GM_download` 在部分管理器下会忽略 `name`，导致文件名退回 CDN 原名，因此默认走扁平保存。
 5. **断点续传**（Python）：详情 JSON 缓存在 `data/opus/`，已存在的图片直接跳过；中断后重跑只补缺失部分。
 
 ## 注意事项与已知限制
@@ -209,10 +209,14 @@ images/
 - **0.9.0**
   - 支持空间图文列表页、动态瀑布流、单篇 opus 三类页面。
   - 新增日期区间与篇数上限；默认命名 `{username} {date} ({seq}).{ext}`。
-  - 移植原图 URL 规范化与命名映射，修复下载文件名退回 UUID 的问题。
-  - 移除参考脚本的视频下载与相关 `@connect`、`@match`，项目独立发版。
+  - 实现原图 URL 规范化与命名映射，修复下载文件名退回 UUID 的问题。
+  - 移除视频下载功能与相关 `@connect`、`@match`，项目独立发版。
   - 收尾：统一名称与仓库结构，清理过时文件与配置。
 
 ## 致谢与许可
 
-油猴脚本基于 **OWENDSWANG** 的《下载Bilibili动态页面图片和视频》v1.3.0（MIT）扩展而来，保留其界面结构与大部分下载逻辑；上游参考脚本仅本地留存、不入库。本项目脚本同样以 MIT 许可发布。
+本项目油猴脚本在 **owendswang** 的 [《下载Bilibili动态页面图片和视频》](https://greasyfork.org/scripts/421885) v1.3.0 基础上扩展而来，沿用其部分界面结构与下载逻辑。
+
+原脚本版权归 owendswang 所有（`Copyright (c) 2021 owendswang`），以 MIT 许可发布。本项目依照 MIT 的条件使用其代码，即保留上述版权声明与许可声明；脚本头部以 `@original-script` 标注来源，完整许可文本见仓库根目录 `LICENSE`。
+
+原脚本 v1.3.0 因捆绑 ffmpeg.wasm（核心为 GPL-2.0-or-later）而整体按 GPL-2.0 分发。本项目已移除视频下载功能及全部 ffmpeg 依赖，不再包含该部分代码，仅保留原作者以 MIT 发布的部分，因此继续以 **MIT** 许可发布。
