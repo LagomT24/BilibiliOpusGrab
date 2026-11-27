@@ -70,7 +70,7 @@ body.dark #bog-dock,body.dark #bog-queue,body.dark #bog-layer{
   --bog-shadow-2:0 8px 28px rgba(0,0,0,.5);
   --bog-shadow-3:0 18px 48px rgba(0,0,0,.6);
 }
-#bog-dock{position:fixed;left:20px;bottom:20px;z-index:9998;display:flex;align-items:center;gap:4px;padding:4px;background:var(--bog-surface);border:1px solid var(--bog-line);border-radius:14px;box-shadow:var(--bog-shadow-2);}
+#bog-dock{position:fixed;top:76px;right:16px;z-index:9998;display:flex;align-items:center;gap:4px;padding:4px;background:var(--bog-surface);border:1px solid var(--bog-line);border-radius:14px;box-shadow:var(--bog-shadow-2);}
 .bog-dock-btn{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:0;border-radius:10px;background:transparent;color:var(--bog-ink-2);font-family:inherit;font-size:12px;line-height:1;white-space:nowrap;cursor:pointer;transition:background .15s,color .15s;}
 .bog-dock-btn svg{width:14px;height:14px;flex:none;}
 .bog-dock-btn:hover{background:var(--bog-pink-soft);color:var(--bog-pink-hover);}
@@ -79,24 +79,28 @@ body.dark #bog-dock,body.dark #bog-queue,body.dark #bog-layer{
 .bog-dock-btn.is-primary{background:var(--bog-pink);color:#fff;font-weight:500;box-shadow:0 2px 8px rgba(251,114,153,.32);}
 .bog-dock-btn.is-primary:hover{background:var(--bog-pink-hover);color:#fff;}
 .bog-dock-btn.is-primary svg{stroke:#fff;}
-#bog-queue{position:fixed;left:20px;bottom:68px;z-index:9997;width:296px;max-height:42vh;display:flex;flex-direction:column;gap:6px;overflow-y:auto;overflow-x:hidden;padding-right:2px;}
+#bog-queue{position:fixed;top:126px;right:16px;z-index:9997;width:300px;max-height:calc(100vh - 142px);display:flex;flex-direction:column;gap:6px;overflow-y:auto;overflow-x:hidden;padding-right:2px;}
 #bog-queue::-webkit-scrollbar{width:5px;}
 #bog-queue::-webkit-scrollbar-thumb{background:var(--bog-line-2);border-radius:3px;}
-.bog-queue-title{position:sticky;top:0;z-index:2;flex:none;display:none;align-items:center;justify-content:space-between;gap:8px;padding:4px 4px 5px;font-size:11px;color:var(--bog-ink-3);letter-spacing:.04em;background:var(--bog-surface);border-radius:6px;}
+@media (max-width:560px){#bog-dock{right:12px;}#bog-queue{left:12px;right:12px;width:auto;}}
+.bog-queue-title{position:sticky;top:0;z-index:3;flex:none;display:none;align-items:center;justify-content:space-between;gap:8px;padding:5px 9px;font-size:11px;color:var(--bog-ink-3);letter-spacing:.04em;background:var(--bog-surface);border:1px solid var(--bog-line);border-radius:9px;box-shadow:var(--bog-shadow-1);}
 .bog-queue-ctrls{display:inline-flex;align-items:center;gap:10px;}
 .bog-queue-ctrl{border:0;background:transparent;padding:0;font-family:inherit;font-size:11px;line-height:1;color:var(--bog-ink-3);cursor:pointer;transition:color .15s;}
 .bog-queue-ctrl:hover{color:var(--bog-pink-hover);}
 .bog-queue-ctrl.is-danger:hover{color:var(--bog-danger);}
-.bog-progress{position:relative;overflow:hidden;flex:none;display:flex;align-items:center;min-height:34px;padding:0 4px 0 11px;background:var(--bog-surface);border:1px solid var(--bog-line);border-radius:10px;box-shadow:var(--bog-shadow-1);}
+.bog-progress{position:relative;overflow:hidden;flex:none;display:flex;align-items:center;gap:6px;min-height:34px;padding:0 4px 0 11px;background:var(--bog-surface);border:1px solid var(--bog-line);border-radius:10px;box-shadow:var(--bog-shadow-1);}
 .bog-progress::before{content:"";position:absolute;left:0;top:0;bottom:0;width:calc(var(--p,0)*1%);background:var(--bog-pink-soft);transition:width .25s ease-out;}
 .bog-progress::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:calc(var(--p,0)*1%);background:var(--bog-pink);transition:width .25s ease-out;}
-.bog-progress-name{position:relative;flex:1;min-width:0;font-size:11.5px;line-height:32px;color:var(--bog-ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;}
+.bog-progress-name{position:relative;flex:1;min-width:0;font-size:11.5px;line-height:32px;color:var(--bog-ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bog-progress-pct{position:relative;flex:none;min-width:30px;text-align:right;font-size:11px;line-height:32px;color:var(--bog-ink-3);font-variant-numeric:tabular-nums;}
 .bog-progress-x{position:relative;flex:none;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:6px;background:transparent;padding:0;font-family:inherit;font-size:15px;line-height:1;color:var(--bog-ink-3);cursor:pointer;transition:background .15s,color .15s;}
 .bog-progress-x:hover{background:var(--bog-danger-soft);color:var(--bog-danger);}
 .bog-progress.is-error{border-color:rgba(225,76,76,.35);}
 .bog-progress.is-error::before,.bog-progress.is-error::after{display:none;}
 .bog-progress.is-error .bog-progress-name{color:var(--bog-danger);}
-.bog-progress-retry{position:relative;flex:none;border:0;background:transparent;padding:0 2px;font-family:inherit;font-size:11px;color:var(--bog-danger);text-decoration:underline;text-underline-offset:2px;cursor:pointer;}
+.bog-progress.is-error .bog-progress-pct{display:none;}
+.bog-progress-retry{position:relative;flex:none;height:20px;padding:0 7px;border:1px solid rgba(225,76,76,.32);border-radius:6px;background:transparent;font-family:inherit;font-size:11px;line-height:1;color:var(--bog-danger);cursor:pointer;transition:background .15s;}
+.bog-progress-retry:hover{background:var(--bog-danger-soft);}
 #bog-layer{position:fixed;inset:0;z-index:2147483000;}
 .bog-mask{position:absolute;inset:0;background:rgba(16,17,20,.44);backdrop-filter:blur(3px);animation:bogMaskIn .16s ease-out;}
 .bog-dialog{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:428px;max-width:calc(100vw - 32px);max-height:min(660px,calc(100vh - 48px));display:flex;flex-direction:column;background:var(--bog-surface);border-radius:16px;box-shadow:var(--bog-shadow-3);overflow:hidden;animation:bogDialogIn .2s cubic-bezier(.2,.8,.3,1);color:var(--bog-ink);}
@@ -194,6 +198,18 @@ html[data-theme="dark"] .download-button i,body.dark .download-button i{filter:i
         el.style.setProperty('--p', value.toFixed(1));
     }
 
+    /** 进度条文案：名称占左侧自适应宽度，百分比单列右对齐（等宽数字，不抖动） */
+    function bogSetProgressText(el, nameText, percent) {
+        if (!el) return;
+        if (nameText !== null && nameText !== undefined) {
+            const nameEl = el.querySelector('.bog-progress-name');
+            if (nameEl) nameEl.textContent = nameText;
+        }
+        const pctEl = el.querySelector('.bog-progress-pct');
+        if (!pctEl) return;
+        pctEl.textContent = (percent === null || percent === undefined) ? '' : (Math.round(percent) + '%');
+    }
+
     /** 按钮文案：带 <span class="bog-dock-label"> 的走内层，没有的直接写 textContent */
     function bogSetBtnText(btn, text) {
         if (!btn) return;
@@ -240,6 +256,9 @@ html[data-theme="dark"] .download-button i,body.dark .download-button i{filter:i
     let progressText = document.createElement('span');
     progressText.className = 'bog-progress-name';
     progressBar.appendChild(progressText);
+    let progressPct = document.createElement('span');
+    progressPct.className = 'bog-progress-pct';
+    progressBar.appendChild(progressPct);
     let progressCloseBtn = document.createElement('button');
     progressCloseBtn.type = 'button';
     progressCloseBtn.className = 'bog-progress-x';
@@ -511,7 +530,7 @@ html[data-theme="dark"] .download-button i,body.dark .download-button i{filter:i
         console.log('[bog] GM_download name =', name);
         const progress = downloadQueueCard.appendChild(progressBar.cloneNode(true));
         const progressName = name.length > 20 ? (name.substring(0, 20) + '...') : name;
-        progress.firstChild.textContent = progressName + ' [0%]';
+        bogSetProgressText(progress, progressName, 0);
         bogUpdateQueueTitle();
         if (url.startsWith('http://')) url = url.replace(/^http\:/, 'https:');
 
@@ -529,11 +548,11 @@ html[data-theme="dark"] .download-button i,body.dark .download-button i{filter:i
                     if (!e || !e.total) return;
                     const percent = e.loaded / e.total * 100;
                     bogSetProgress(progress, percent);
-                    progress.firstChild.textContent = progressName + ' [' + percent.toFixed(0) + '%]';
+                    bogSetProgressText(progress, null, percent);
                 },
                 onload: function() {
                     bogSetProgress(progress, 100);
-                    progress.firstChild.textContent = progressName + ' [100%]';
+                    bogSetProgressText(progress, null, 100);
                     setTimeout(function() {
                         progress.remove();
                         bogUpdateQueueTitle();
@@ -615,7 +634,7 @@ html[data-theme="dark"] .download-button i,body.dark .download-button i{filter:i
                     // e = { int done, finalUrl, bool lengthComputable, int loaded, int position, int readyState, response, str responseHeaders, responseText, responseXML, int status, statusText, int total, int totalSize }
                     const percent = e.done / e.total * (progressMax - progressMin) / 100 + progressMin;
                     bogSetProgress(progress, percent);
-                    progress.firstChild.textContent = progressName + ' [' + percent.toFixed(0) + '%]';
+                    bogSetProgressText(progress, null, percent);
                 },
                 onload: function({ response, responseText }) {
                     // console.log(response);
@@ -664,10 +683,12 @@ html[data-theme="dark"] .download-button i,body.dark .download-button i{filter:i
             silent: true,
             timeout: 3,
         });*/
-        const shortName = name.length > 10 ? (name.substring(0, 10) + '...') : name;
+        const shortName = name.length > 16 ? (name.substring(0, 16) + '…') : name;
+        const errText = (e && e.error) ? e.error : '未知错误';
         progress.classList.add('is-error');
         progress._bogAbort = null;
-        progress.firstChild.textContent = shortName + ' · ' + ((e && e.error) ? e.error : '未知错误');
+        bogSetProgressText(progress, shortName + ' · ' + errText, null);
+        progress.title = name + '\n' + errText;
         let progressRetryBtn = document.createElement('button');
         progressRetryBtn.type = 'button';
         progressRetryBtn.className = 'bog-progress-retry';
@@ -677,6 +698,8 @@ html[data-theme="dark"] .download-button i,body.dark .download-button i{filter:i
             this.parentNode.remove();
             downloadWrapper(url, name);
         };
+        // 顺序：文件名 → [重试] → [×]。重试是恢复动作靠内，关闭是不可逆动作固定最右端，
+        // 避免手滑把「还想再试一次」点成「关掉」。
         progress.insertBefore(progressRetryBtn, progress.lastChild);
         progress.lastChild.title = '关闭';
         progress.lastChild.onclick = function(e) {
@@ -696,7 +719,7 @@ html[data-theme="dark"] .download-button i,body.dark .download-button i{filter:i
         const flatName = name.split('/').pop();
         const progress = downloadQueueCard.appendChild(progressBar.cloneNode(true));
         const progressName = name.length > 20 ? (name.substring(0,20) + '...') : name;
-        progress.firstChild.textContent = progressName + ' [0%]';
+        bogSetProgressText(progress, progressName, 0);
         bogUpdateQueueTitle();
         if (url.startsWith('http://')) url = url.replace(/^http\:/, 'https:');
         return new Promise(function(resolve, reject) {
@@ -712,7 +735,7 @@ html[data-theme="dark"] .download-button i,body.dark .download-button i{filter:i
                     // e = { int done, finalUrl, bool lengthComputable, int loaded, int position, int readyState, response, str responseHeaders, responseText, responseXML, int status, statusText, int total, int totalSize }
                     const percent = e.done / e.total * 100;
                     progress.style.background = 'linear-gradient(to right, green ' + percent + '%, transparent ' + percent + '%)';
-                    progress.firstChild.textContent = progressName + ' [' + percent.toFixed(0) + '%]';
+                    bogSetProgressText(progress, null, percent);
                 },
                 onload: function({ response }) {
                     // console.log(response);
@@ -748,7 +771,7 @@ html[data-theme="dark"] .download-button i,body.dark .download-button i{filter:i
                 // console.log(e);
                 const percent = e.loaded / e.total * 100;
                 bogSetProgress(progress, percent);
-                progress.firstChild.textContent = progressName + ' [' + percent.toFixed(0) + '%]';
+                bogSetProgressText(progress, null, percent);
             };
             oReq.onload = (e) => {
                 progress._bogAbort = null;

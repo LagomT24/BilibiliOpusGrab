@@ -30,8 +30,6 @@ bilibili-opus-grab/                # 仓库根目录（GitHub: BilibiliOpusGrab�
 ├── requirements.txt               # Python 依赖
 ├── README.md
 ├── .gitignore
-├── preview/
-│   └── ui-1.0.0.html              # 界面视觉原型，浏览器直接打开，可切深浅色
 ├── data/                          # 运行期状态，本地生成，不入库
 │   ├── list.json                  # 作品列表
 │   ├── opus/<id>.json             # 每篇详情原始响应（断点续传用）
