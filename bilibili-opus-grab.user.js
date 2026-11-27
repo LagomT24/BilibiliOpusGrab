@@ -2,10 +2,12 @@
 // @name         BilibiliOpusGrab
 // @name:zh-CN   bilibili图文抓取
 // @namespace    bilibili-opus-grab
-// @version      1.0.0
+// @version      1.0.1
 // @description  Batch-download original images from bilibili dynamics, space opus list and single opus pages.
 // @description:zh-CN 批量下载 B 站动态、空间图文列表与单篇 opus 的原图，支持日期区间与自定义命名。
 // @author       WangLu
+// @homepageURL  https://github.com/LagomT24/BilibiliOpusGrab
+// @supportURL   https://github.com/LagomT24/BilibiliOpusGrab/issues
 // @original-script  https://greasyfork.org/scripts/421885 (c) owendswang, MIT
 // @license      MIT
 // @icon         data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23FB7299'/%3E%3Ccircle cx='22' cy='21' r='5' fill='%23fff'/%3E%3Cpath d='M13 45l13-15 8 9 6-6 11 12z' fill='%23fff'/%3E%3C/svg%3E
