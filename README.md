@@ -1,5 +1,7 @@
 # BilibiliOpusGrab · bilibili 图文抓取
 
+**[→ 一键安装油猴脚本](https://raw.githubusercontent.com/LagomT24/BilibiliOpusGrab/main/bilibili-opus-grab.user.js)** · 需先安装 [Tampermonkey](https://www.tampermonkey.net/) 或 Violentmonkey
+
 批量抓取 B 站「图文」（动态瀑布流、空间图文列表、单篇 opus）里的**全部原图**，按日期 + 序号命名保存。
 
 项目提供两种形态，共用同一套接口逻辑：
@@ -48,11 +50,21 @@ bilibili-opus-grab/                # 仓库根目录（GitHub: BilibiliOpusGrab�
 ### 油猴脚本
 
 1. 浏览器安装用户脚本管理器：[Tampermonkey](https://www.tampermonkey.net/) 或 Violentmonkey。
-2. 取得脚本，任选一种：
-   - 克隆仓库后，把 `bilibili-opus-grab.user.js` 拖进浏览器窗口，管理器会自动弹出安装页；
-   - 或打开管理器面板 →「添加新脚本」，用文件内容整体覆盖编辑器后保存。
+
+2. 安装脚本，任选一种：
+
+   **一键安装**——直接点这个链接：
+
+   https://raw.githubusercontent.com/LagomT24/BilibiliOpusGrab/main/bilibili-opus-grab.user.js
+
+   管理器会拦截以 `.user.js` 结尾的地址并弹出安装页，确认后点「安装」。
+
+   **手动安装**——克隆仓库后把 `bilibili-opus-grab.user.js` 拖进浏览器窗口；或在管理器面板「添加新脚本」里用文件内容覆盖编辑器后保存。
+
 3. 首次安装或版本升级后会弹出设置面板（`settingVersion = 6`），确认文件名模板即可开始使用。
 4. 若此前装过同类脚本或旧版本（`@namespace` 不同），请先在管理器里删除旧条目，避免两份脚本同时挂载、重复生成按钮。
+
+脚本头部声明了 `@downloadURL` 与 `@updateURL`，都指向本仓库 `main` 分支的原始文件，因此管理器会自行检查更新，无需重新手动下载。raw 地址有 CDN 缓存，新版本推送后可能需要几分钟才可见。仓库必须是 **public**，否则原始文件链接需要登录，管理器取不到内容。
 
 ### Python 爬虫
 
@@ -202,7 +214,7 @@ images/
 - **1.0.1**（当前）
   - 悬浮入口与下载队列移至**右上角**，队列从胶囊下方依次向下排列（原为左下角、向上堆叠）。
   - 队列卡片按键重排为「文件名 → 百分比 → 重试 → ×」：百分比拆成独立列不再挤在文件名里，失败态「重试」改为描边按钮，`×` 固定在最右端。
-  - 补充 `@homepageURL` 与 `@supportURL`，管理器脚本列表与 Greasy Fork 页面可直接跳到仓库与反馈。
+  - 补充 `@homepageURL`、`@supportURL`、`@downloadURL`、`@updateURL`：管理器列表可直达仓库与反馈，并支持从 GitHub 原始文件一键安装、自动检查更新。
   - 文档：README 位置描述同步为右上角；补充 MIT 归属声明与 `LICENSE`。
 - **1.0.0**
   - 界面改版：左侧三个贴边灰按钮收为左下角悬浮胶囊，设置面板重做，下载队列改为卡片式堆叠。
